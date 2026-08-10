@@ -30,6 +30,21 @@ export async function settleCreditTrade(opts: {
   if (amount <= 0) throw new Error("Amount must be positive");
 
   await db.$transaction(async (tx) => {
+    // Lock the spender's row BEFORE reading their balance.
+    //
+    // Without this, the read-then-write below is a classic double-spend: two
+    // simultaneous settlements both read the same balance, both pass the check,
+    // and both insert. SQLite happens to hide this by serializing all writes,
+    // but production is Postgres (see docs/HANDOFF.md), where READ COMMITTED
+    // would let both through. Writing to the User row first takes an exclusive
+    // row lock for the rest of the transaction, so concurrent spends by the
+    // same member queue instead of racing. Verified by
+    // scripts/stress/race-credits.ts.
+    await tx.user.update({
+      where: { id: fromUserId },
+      data: { updatedAt: new Date() },
+    });
+
     const agg = await tx.tradeCreditEntry.aggregate({
       where: { userId: fromUserId },
       _sum: { delta: true },
