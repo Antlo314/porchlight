@@ -20,7 +20,15 @@ recognizable real person.
 
 ---
 
-## 1. App icon (required — replaces the placeholder icons in `public/icons/`)
+> **Status (Aug 9, 2026):** #1 ✅ done and installed (`public/icons/`). #2 ✅ done
+> — both renders came out 9:16 portrait; the portrait one is live on the landing
+> page (`public/images/hero.jpg`). If you want a true 16:9 for desktop later,
+> re-run prompt #2 and pick the landscape aspect in Grok's UI. #3 — a 1200×630
+> OG card was cropped from the hero as a stand-in (`public/images/og.jpg`);
+> generating the real illustrated card below will look sharper in link previews.
+> #4 prompts below are now fully assembled — paste each one whole.
+
+## 1. App icon ✅ (done — installed in `public/icons/`)
 
 > A minimalist app icon of a glowing porch lantern, flat vector illustration, centered on a solid warm amber background #c2661b. The lantern is a simple geometric shape in cream #faf7f2 with a soft golden glow radiating outward. Bold, iconic, readable at 48 pixels. Rounded square format, no text, no gradients beyond the glow, generous padding around the mark. Modern app icon design, high contrast.
 
@@ -36,15 +44,27 @@ Drop into `public/icons/` replacing `icon-192.png`, `icon-512.png`,
 
 > A flat vector illustration of a row of five neighboring houses at dusk, each with a small glowing amber porch light, connected by delicate golden lines of light arcing between the porches. Background cream #faf7f2, houses in ink #2b2420 silhouette, lights and connecting lines in amber #c2661b, pine trees in deep green #2f5540. Clean, geometric, lots of negative space in the upper third for a headline. No text.
 
-## 4. Empty-state illustrations (square, transparent background)
+## 4. Empty-state illustrations (square — four separate generations)
 
-Same style line for all four so they read as a set. Append to each:
-*"Flat vector spot illustration, single color amber #c2661b with cream #faf7f2 highlights, simple confident line work, transparent background, centered, generous whitespace, no text."*
+Generate each prompt below as its own image. They share one style recipe so
+they read as a set. Grok outputs JPG (no transparency) — that's fine; the solid
+cream background matches the app's page background exactly.
 
-- **Quiet feed** → *An empty porch rocking chair with a single lit lantern beside it.*
-- **No barter listings** → *Two open hands exchanging a small potted plant for a hand tool.*
-- **No messages** → *Two paper cups connected by a taut string, tin-can telephone style.*
-- **No events** → *A folding table with three chairs and a string of hanging lights.*
+**4a — Quiet feed:**
+> An empty wooden porch rocking chair with a single lit lantern on the floor beside it, casting a soft glow. Flat vector spot illustration, single color amber #c2661b with cream #faf7f2 highlights, on a solid cream #faf7f2 background, simple confident line work, centered composition with generous whitespace, square format, no text.
+
+**4b — No barter listings:**
+> Two open hands reaching toward each other, one holding a small potted plant and the other holding a hand tool, mid-exchange. Flat vector spot illustration, single color amber #c2661b with cream #faf7f2 highlights, on a solid cream #faf7f2 background, simple confident line work, centered composition with generous whitespace, square format, no text.
+
+**4c — No messages:**
+> Two paper cups connected by a taut string, tin-can telephone style, angled toward each other across the frame. Flat vector spot illustration, single color amber #c2661b with cream #faf7f2 highlights, on a solid cream #faf7f2 background, simple confident line work, centered composition with generous whitespace, square format, no text.
+
+**4d — No events:**
+> A small folding table with three chairs and a string of glowing cafe lights hanging above it. Flat vector spot illustration, single color amber #c2661b with cream #faf7f2 highlights, on a solid cream #faf7f2 background, simple confident line work, centered composition with generous whitespace, square format, no text.
+
+Save them into the Downloads\Porchlight folder as `empty-feed.jpg`,
+`empty-barter.jpg`, `empty-messages.jpg`, `empty-events.jpg` and Claude will
+wire them into the EmptyState components.
 
 ## 5. Business-facing ad creative (the $170 wedge — 1:1 and 9:16)
 

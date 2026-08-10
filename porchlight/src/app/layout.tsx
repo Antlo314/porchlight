@@ -2,10 +2,29 @@ import type { Metadata, Viewport } from "next";
 import PwaRegister from "@/components/PwaRegister";
 import "./globals.css";
 
+const DESCRIPTION =
+  "Your Georgia neighborhood, together — news, barter, local services, and neighbors you can actually reach.";
+
 export const metadata: Metadata = {
+  // Set NEXT_PUBLIC_APP_URL to the real domain at deploy time so share images
+  // resolve to absolute URLs.
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
+  ),
   title: { default: "Porchlight", template: "%s · Porchlight" },
-  description:
-    "Your Georgia neighborhood, together — news, barter, local services, and neighbors you can actually reach.",
+  description: DESCRIPTION,
+  openGraph: {
+    title: "Porchlight",
+    description: DESCRIPTION,
+    siteName: "Porchlight",
+    images: [{ url: "/images/og.jpg", width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Porchlight",
+    description: DESCRIPTION,
+    images: ["/images/og.jpg"],
+  },
   applicationName: "Porchlight",
   manifest: "/manifest.webmanifest",
   // Standalone launch from the iOS home screen, with the app name under the icon.
