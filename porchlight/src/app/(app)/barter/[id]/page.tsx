@@ -30,7 +30,8 @@ export async function generateMetadata({ params }: PageProps) {
     where: { id },
     select: { title: true },
   });
-  return { title: listing ? `${listing.title} · Porchlight` : "Listing · Porchlight" };
+  // The root layout's title template already appends "· Porchlight".
+  return { title: listing ? listing.title : "Listing" };
 }
 
 export default async function ListingDetailPage({ params }: PageProps) {

@@ -31,7 +31,8 @@ export async function generateMetadata({ params }: PageProps) {
     select: { name: true },
   });
   return {
-    title: person ? `${person.name} · Porchlight` : "Neighbor · Porchlight",
+    // The root layout's title template already appends "· Porchlight".
+    title: person ? person.name : "Neighbor",
   };
 }
 
