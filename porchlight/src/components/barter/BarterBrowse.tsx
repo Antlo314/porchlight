@@ -55,6 +55,7 @@ export function BarterBrowse({ listings }: { listings: ListingCardData[] }) {
     return (
       <EmptyState
         icon="🤝"
+        imageSrc="/images/empty/empty-barter.jpg"
         title="No trades on the block yet"
         body="Porch Credits work best when someone goes first. Offer a tool, a skill, or an hour of help."
         actionLabel="Post the first trade"

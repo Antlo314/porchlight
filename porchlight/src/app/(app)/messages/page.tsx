@@ -68,6 +68,7 @@ export default async function MessagesPage() {
       {conversations.length === 0 ? (
         <EmptyState
           icon="💬"
+          imageSrc="/images/empty/empty-messages.jpg"
           title="No conversations yet"
           body="Message a neighbor from their profile, a barter listing, or start one here."
           actionLabel="Start a conversation"
