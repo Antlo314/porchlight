@@ -1,0 +1,381 @@
+// Porchlight data model
+// Dev: SQLite. Production: switch provider to "postgresql" — the schema is written
+// to be portable (no SQLite-only features; enums are modeled as String constants
+// validated by Zod in src/lib/validators.ts, since SQLite lacks native enums).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Identity & community
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  passwordHash   String
+  name           String
+  avatarUrl      String?
+  bio            String?
+  role           String   @default("MEMBER") // MEMBER | MODERATOR | ADMIN
+  neighborhoodId String
+  neighborhood   Neighborhood @relation(fields: [neighborhoodId], references: [id])
+  addressLine    String? // used only for residency verification, never public
+  verifiedAt     DateTime? // neighborhood residency verified
+  karma          Int      @default(0) // earned via helpful posts, completed trades
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  posts            Post[]
+  comments         Comment[]
+  reactions        Reaction[]
+  sentMessages     Message[]
+  conversations    ConversationParticipant[]
+  barterListings   BarterListing[]
+  barterOffersMade BarterOffer[] @relation("OffersMade")
+  creditEntries    TradeCreditEntry[]
+  businesses       Business[]
+  reviews          Review[]
+  notifications    Notification[]
+  reportsFiled     Report[]
+  follows          NeighborhoodFollow[]
+  eventRsvps       EventRsvp[]
+  boostEvents      BoostEvent[]
+}
+
+model Neighborhood {
+  id        String  @id @default(cuid())
+  slug      String  @unique
+  name      String
+  city      String
+  county    String
+  state     String  @default("GA")
+  lat       Float
+  lng       Float
+  createdAt DateTime @default(now())
+
+  users          User[]
+  posts          Post[]
+  barterListings BarterListing[]
+  businesses     Business[]
+  followers      NeighborhoodFollow[]
+}
+
+// Members see their home neighborhood plus any they follow (nearby areas).
+model NeighborhoodFollow {
+  userId         String
+  neighborhoodId String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  neighborhood   Neighborhood @relation(fields: [neighborhoodId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@id([userId, neighborhoodId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Feed: posts, comments, reactions, events
+// ─────────────────────────────────────────────────────────────
+
+model Post {
+  id             String   @id @default(cuid())
+  authorId       String
+  author         User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  neighborhoodId String
+  neighborhood   Neighborhood @relation(fields: [neighborhoodId], references: [id])
+  type           String   @default("GENERAL") // GENERAL | SAFETY | EVENT | RECOMMENDATION | LOST_FOUND | FREE_STUFF
+  title          String?
+  body           String
+  images         String   @default("[]") // JSON array of URLs
+  pinned         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  comments  Comment[]
+  reactions Reaction[]
+  event     EventDetail?
+
+  @@index([neighborhoodId, createdAt])
+}
+
+model EventDetail {
+  postId    String   @id
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  startsAt  DateTime
+  endsAt    DateTime?
+  location  String
+  rsvps     EventRsvp[]
+}
+
+model EventRsvp {
+  eventId   String
+  userId    String
+  event     EventDetail @relation(fields: [eventId], references: [postId], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status    String      @default("GOING") // GOING | MAYBE
+  createdAt DateTime    @default(now())
+
+  @@id([eventId, userId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parentId  String?  // one level of threading
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([postId, createdAt])
+}
+
+model Reaction {
+  userId    String
+  postId    String
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  kind      String @default("LIKE") // LIKE | THANKS | HELPFUL
+  createdAt DateTime @default(now())
+
+  @@id([userId, postId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Messaging: DMs and group chats
+// ─────────────────────────────────────────────────────────────
+
+model Conversation {
+  id        String   @id @default(cuid())
+  isGroup   Boolean  @default(false)
+  title     String?  // group chats only
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt // bumped on new message, used for inbox sort
+
+  participants ConversationParticipant[]
+  messages     Message[]
+}
+
+model ConversationParticipant {
+  conversationId String
+  userId         String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt     DateTime     @default(now())
+  joinedAt       DateTime     @default(now())
+
+  @@id([conversationId, userId])
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  body           String
+  imageUrl       String?
+  createdAt      DateTime @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Barter: listings, offers, and the trade-credit ledger
+// ─────────────────────────────────────────────────────────────
+
+// A barter listing offers GOODS (a physical item), a SERVICE (a skill),
+// or TIME (hour-denominated help — the time-banking differentiator).
+model BarterListing {
+  id             String   @id @default(cuid())
+  ownerId        String
+  owner          User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  neighborhoodId String
+  neighborhood   Neighborhood @relation(fields: [neighborhoodId], references: [id])
+  kind           String   // GOODS | SERVICE | TIME
+  title          String
+  description    String
+  category       String   // TOOLS | FURNITURE | ELECTRONICS | CLOTHING | GARDEN | SKILLS | CHILDCARE | TUTORING | REPAIRS | OTHER
+  images         String   @default("[]") // JSON array of URLs
+  wants          String?  // freeform: what the owner wants in return
+  creditValue    Int?     // optional asking price in Porch Credits
+  status         String   @default("OPEN") // OPEN | PENDING | COMPLETED | WITHDRAWN
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  offers BarterOffer[]
+
+  @@index([neighborhoodId, status, createdAt])
+}
+
+model BarterOffer {
+  id              String  @id @default(cuid())
+  listingId       String
+  listing         BarterListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  offererId       String
+  offerer         User    @relation("OffersMade", fields: [offererId], references: [id], onDelete: Cascade)
+  message         String
+  offeredItemDesc String? // what they're offering in trade
+  creditAmount    Int?    // or an offer in Porch Credits
+  status          String  @default("PENDING") // PENDING | ACCEPTED | DECLINED | COMPLETED | CANCELLED
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  creditEntries TradeCreditEntry[]
+}
+
+// Append-only ledger. A user's Porch Credit balance = SUM(delta) of their rows.
+// Credits are earned by completing trades/help, spent on barter offers, and can
+// be granted (signup bonus, community rewards). Never delete rows.
+model TradeCreditEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  delta     Int      // positive = earned, negative = spent
+  reason    String   // SIGNUP_BONUS | TRADE_EARNED | TRADE_SPENT | COMMUNITY_REWARD | ADJUSTMENT
+  offerId   String?
+  offer     BarterOffer? @relation(fields: [offerId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Businesses & monetization
+// ─────────────────────────────────────────────────────────────
+
+model Business {
+  id             String   @id @default(cuid())
+  ownerId        String
+  owner          User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  neighborhoodId String
+  neighborhood   Neighborhood @relation(fields: [neighborhoodId], references: [id])
+  name           String
+  category       String   // HOME_SERVICES | FOOD | HEALTH | AUTO | PETS | CLEANING | LANDSCAPING | TUTORING | EVENTS | OTHER
+  description    String
+  phone          String?
+  website        String?
+  logoUrl        String?
+  verifiedAt     DateTime? // proof-of-service verified by Porchlight
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  services     ServiceListing[]
+  subscription Subscription?
+  reviews      Review[]
+  adBoosts     AdBoost[]
+}
+
+model ServiceListing {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  title       String
+  description String
+  priceInfo   String?  // freeform: "from $80", "free estimates"
+  images      String   @default("[]")
+  status      String   @default("ACTIVE") // ACTIVE | PAUSED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Plans (see docs/HANDOFF.md for pricing rationale):
+//   FREE       — business profile + reviews, 1 service listing
+//   LOCAL_PRO  — $19/mo: unlimited listings, respond to recommendations
+//   FEATURED   — $39/mo: LOCAL_PRO + rotating featured placement + ad-boost pool
+model Subscription {
+  id                   String   @id @default(cuid())
+  businessId           String   @unique
+  business             Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  plan                 String   @default("FREE") // FREE | LOCAL_PRO | FEATURED
+  status               String   @default("ACTIVE") // ACTIVE | PAST_DUE | CANCELLED
+  currentPeriodEnd     DateTime?
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+// The "we pay for your ads" promise: a share of subscription revenue funds
+// boosts for verified businesses with strong reviews. poolFunded=true rows are
+// paid for by Porchlight, not the business.
+model AdBoost {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  poolFunded  Boolean  @default(false)
+  startsAt    DateTime
+  endsAt      DateTime
+  impressions Int      @default(0)
+  clicks      Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  events BoostEvent[]
+
+  @@index([endsAt])
+}
+
+// One row per (viewer, boost, kind, day). The unique constraint is what makes
+// ad metrics trustworthy: a replayed or scripted call collides instead of
+// inflating the counter, and owners can't count their own impressions. The
+// Int totals on AdBoost stay as fast denormalized reads, incremented only when
+// the event row is genuinely new.
+model BoostEvent {
+  id        String   @id @default(cuid())
+  boostId   String
+  boost     AdBoost  @relation(fields: [boostId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String   // IMPRESSION | CLICK
+  day       String   // YYYY-MM-DD — one viewer counts once per boost per day
+  createdAt DateTime @default(now())
+
+  @@unique([boostId, userId, kind, day])
+}
+
+model Review {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  rating      Int      // 1–5
+  body        String
+  verifiedJob Boolean  @default(false) // reviewer completed a paid job with this business
+  createdAt   DateTime @default(now())
+
+  @@unique([businessId, authorId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Notifications & moderation
+// ─────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // NEW_COMMENT | NEW_MESSAGE | OFFER_RECEIVED | OFFER_ACCEPTED | OFFER_DECLINED | RSVP | REVIEW | SYSTEM
+  payload   String   @default("{}") // JSON: ids/links needed to render + navigate
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId, readAt])
+}
+
+model Report {
+  id         String   @id @default(cuid())
+  reporterId String
+  reporter   User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  targetType String   // POST | COMMENT | MESSAGE | LISTING | BUSINESS | USER
+  targetId   String
+  reason     String
+  status     String   @default("OPEN") // OPEN | RESOLVED | DISMISSED
+  createdAt  DateTime @default(now())
+}

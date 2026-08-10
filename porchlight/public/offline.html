@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Offline · Porchlight</title>
+    <meta name="theme-color" content="#c2661b" />
+    <!-- Served by the service worker when a page request cannot reach the
+         network. It is deliberately static and signed-out: never show cached
+         neighborhood content here, because it may belong to another session. -->
+    <style>
+      :root {
+        --cream: #faf7f2;
+        --ink: #2b2420;
+        --ink-soft: #6b5f56;
+        --porch-600: #c2661b;
+        --porch-700: #a14e18;
+        --line: #e8e0d6;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+      }
+      body {
+        background: var(--cream);
+        color: var(--ink);
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+          "Helvetica Neue", sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 1.5rem;
+      }
+      main {
+        max-width: 22rem;
+        text-align: center;
+      }
+      img {
+        width: 72px;
+        height: 72px;
+        border-radius: 1rem;
+      }
+      h1 {
+        font-size: 1.25rem;
+        margin: 1rem 0 0.35rem;
+      }
+      p {
+        color: var(--ink-soft);
+        font-size: 0.95rem;
+        line-height: 1.5;
+        margin: 0;
+      }
+      button {
+        margin-top: 1.5rem;
+        min-height: 3.25rem;
+        width: 100%;
+        border: 0;
+        border-radius: 1rem;
+        background: var(--porch-600);
+        color: #fff;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button:active {
+        background: var(--porch-700);
+        transform: scale(0.98);
+      }
+      small {
+        display: block;
+        margin-top: 1rem;
+        color: var(--ink-soft);
+        font-size: 0.8rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/icons/icon-192.png" alt="" />
+      <h1>The porch light is on, but you're offline</h1>
+      <p>
+        Porchlight needs a connection to load your neighborhood. Nothing was
+        lost — reconnect and pick up where you left off.
+      </p>
+      <button type="button" onclick="location.reload()">Try again</button>
+      <small>Porchlight · Georgia neighborhoods</small>
+    </main>
+  </body>
+</html>

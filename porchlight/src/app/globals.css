@@ -1,0 +1,113 @@
+@import "tailwindcss";
+
+/* Porchlight design tokens — warm "porch glow" palette.
+   Reference these via Tailwind utilities: bg-porch-600, text-ink, bg-cream, etc. */
+@theme {
+  /* Brand: warm amber glow */
+  --color-porch-50: #fdf6ec;
+  --color-porch-100: #faeacf;
+  --color-porch-200: #f4d29e;
+  --color-porch-300: #edb56a;
+  --color-porch-400: #e69a41;
+  --color-porch-500: #dd7f22;
+  --color-porch-600: #c2661b;
+  --color-porch-700: #a14e18;
+  --color-porch-800: #833e1a;
+  --color-porch-900: #6c3418;
+
+  /* Support: deep pine green (Georgia pines) */
+  --color-pine-500: #3d6b4f;
+  --color-pine-600: #2f5540;
+  --color-pine-700: #264536;
+
+  /* Neutrals: warm cream/ink */
+  --color-cream: #faf7f2;
+  --color-card: #ffffff;
+  --color-ink: #2b2420;
+  --color-ink-soft: #6b5f56;
+  --color-line: #e8e0d6;
+
+  --radius-card: 1rem;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", sans-serif;
+
+  --animate-slide-up: slide-up 0.24s cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-fade-in: fade-in 0.18s ease-out;
+  --animate-shimmer: shimmer 1.4s ease-in-out infinite;
+  --animate-pop: pop 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(14px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.22);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+html {
+  background: var(--color-cream);
+  color: var(--color-ink);
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font-sans);
+  /* Reserve space for iOS/Android home indicator behind the bottom nav */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Horizontal chip/filter rows scroll without a visible scrollbar. */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Respect users who ask the OS to reduce motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
