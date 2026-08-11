@@ -28,7 +28,7 @@ export default async function NewBusinessPage() {
       <header>
         <h1 className="text-2xl font-bold">List your business</h1>
         <p className="mt-1 text-sm text-ink-soft">
-          Free to list in {user.neighborhood.name}. No $170 gate, no
+          Free to list in {user.neighborhood.name}. No listing fee, no
           pay-to-be-seen.
         </p>
       </header>

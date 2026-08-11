@@ -182,7 +182,7 @@ export default async function ProfilePage() {
               href="/business/new"
               icon="🏪"
               label="List your business"
-              sub="Free profile, free reviews, no $170 gate"
+              sub="Free profile, free reviews, no listing fee"
             />
           )}
         </li>

@@ -67,7 +67,7 @@ export function ServiceListingManager({
       setUpgradeMessage(
         `${PLAN_META[plan].label} includes ${limit} service listing${
           limit === 1 ? "" : "s"
-        }. Local Pro is $19/mo for unlimited listings — still a fraction of NextDoor's ~$170.`
+        }. Local Pro is $19/mo for unlimited listings, cancel any time.`
       );
       return;
     }

@@ -84,7 +84,7 @@ export function BusinessDirectory({
             body={
               category
                 ? "Nobody nearby has listed in this category. Know someone? Tell them listing is free."
-                : "Be the first business on your block. Listing on Porchlight is free — no $170 gate."
+                : "Be the first business on your block. Listing on Porchlight is free."
             }
             actionLabel="List a business"
             actionHref="/business/new"

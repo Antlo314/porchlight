@@ -80,14 +80,11 @@ export default async function PricingPage() {
       </header>
 
       <Callout>
-        <h2 className="font-semibold text-porch-800">
-          Why we&apos;re not $170
-        </h2>
+        <h2 className="font-semibold text-porch-800">Why listing is free</h2>
         <p className="mt-1 text-sm leading-relaxed text-ink-soft">
-          NextDoor gates local businesses behind a sponsored-listing fee of
-          roughly <span className="font-semibold text-ink">$170</span> before
-          neighbors can even find you. On Porchlight, being listed, reviewed,
-          and messaged costs{" "}
+          Getting found by the neighbors already looking for you shouldn&apos;t
+          cost anything up front. On Porchlight, being listed, reviewed, and
+          messaged costs{" "}
           <span className="font-semibold text-ink">$0 — permanently</span>.
           Local Pro is <span className="font-semibold text-ink">$19/mo</span>,
           cancel any time, and {poolShareLabel} of every subscription dollar

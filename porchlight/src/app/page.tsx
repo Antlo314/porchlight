@@ -31,7 +31,7 @@ export default async function LandingPage() {
           </p>
           <ul className="mt-6 space-y-3 text-[15px] text-ink-soft">
             <li>🤝 Barter goods, skills, and time with Porch Credits</li>
-            <li>🛠️ Local services without the $170 gatekeeping fee</li>
+            <li>🛠️ Local pros listed free — no pay-to-be-seen</li>
             <li>💬 Real chats and DMs, built for your block</li>
           </ul>
         </div>

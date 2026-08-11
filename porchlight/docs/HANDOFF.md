@@ -75,8 +75,14 @@ manifest, icons, and a service worker.
 
 ## Legal notes (not legal advice — verify before launch)
 
-- Don't use NextDoor's name, branding, or trade dress. "Porchlight" is a
-  working name; trademark-search before spending on branding.
+- **Never name a competitor or quote their prices in user-facing copy.**
+  Describe our own pricing only. Quoting someone else's price is a falsifiable
+  factual claim and the single largest legal exposure in the marketing; naming
+  them invites a public company's lawyers to notice a solo founder. The full
+  rule is at the top of `docs/STRATEGY.md`, and `CLAUDE.md` repeats it so it
+  survives future edits.
+- Don't use another company's name, branding, or trade dress anywhere.
+  "Porchlight" is a working name; trademark-search before spending on branding.
 - Porch Credits must never be sold for or redeemed into cash.
 - Business subscriptions raise sales-tax questions in Georgia — ask an
   accountant at revenue time.

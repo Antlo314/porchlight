@@ -52,8 +52,8 @@ export async function createBusiness(input: unknown): Promise<ActionResult> {
       select: { id: true },
     });
 
-    // Everyone starts on FREE — that free tier is the whole wedge against
-    // NextDoor's ~$170 gate, so it is created up front rather than on upgrade.
+    // Everyone starts on FREE — the free tier is the whole acquisition wedge,
+    // so the subscription row is created up front rather than on upgrade.
     await tx.subscription.create({
       data: { businessId: business.id, plan: "FREE", status: "ACTIVE" },
     });

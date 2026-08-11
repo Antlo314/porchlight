@@ -3,14 +3,41 @@
 Companion to `HANDOFF.md` (which covers the build roadmap). This is the "why
 would anyone switch" document.
 
+> ## ⚠️ INTERNAL ONLY — do not copy from this file into the product
+>
+> This document names a competitor because competitive analysis has to. **No
+> user-facing copy, ad, landing page, or email may do the same.** The rule, in
+> the app and in anything you publish:
+>
+> 1. **Never name a competitor.** Naming one is legal in the US (comparative
+>    advertising and nominative fair use), but it invites a public company's
+>    legal team to look at a solo founder, and a meritless cease-and-desist
+>    still costs you money and weeks.
+> 2. **Never quote a competitor's prices.** This is the actual exposure. A
+>    specific dollar figure about someone else's pricing is a falsifiable
+>    statement of fact; if it's wrong or out of date, that's a Lanham Act
+>    §43(a) false-advertising claim, and it's the one thing here a plaintiff
+>    could genuinely win on.
+> 3. **The "$170" figure below is UNVERIFIED.** It came secondhand from
+>    business owners' complaints. It has not been confirmed against published
+>    pricing, and it may describe an ad-spend package rather than a listing
+>    fee — some competitors' basic business pages are free. Treat it as a
+>    hypothesis about market pain, never as a claim to publish.
+> 4. **Describe our own prices instead.** "Free forever, $19/mo for unlimited"
+>    lands the same punch, can never become false, and reads more confident.
+>
+> Not legal advice — have a Georgia business attorney review launch copy.
+
 ## The three real openings
 
-NextDoor is vulnerable in exactly three places. Everything here attacks one of them.
+The incumbent is vulnerable in three places. Everything here attacks one.
 
-**1. They charge businesses ~$170 to reach neighbors.**
-Small operators — the solo handyman, the house cleaner, the lawn guy — are
-priced out of the one channel where they'd actually convert. Our free tier is
-the wedge, $19/mo is the conversion, and the Ad-Boost Pool is the retention hook.
+**1. Small businesses are priced out of local reach.**
+Solo operators — the handyman, the house cleaner, the lawn guy — get gated
+behind fees or ad minimums on the one channel where they'd actually convert.
+Our free tier is the wedge, $19/mo is the conversion, and the Ad-Boost Pool is
+the retention hook. Sell this by describing what *we* charge, and let the
+business do its own math.
 
 **2. Their Safety feed became a paranoia machine.**
 This is NextDoor's single biggest reputational wound: unverified "suspicious
@@ -44,7 +71,12 @@ paranoia."* Concretely:
   descriptions rarely help and often harm.
 - Safety posts auto-expire after 14 days so the feed doesn't accrete dread.
 - No "suspicious" as a selectable category. Ever.
-Ship this loudly. It's the thing a local reporter writes about.
+
+Ship this loudly — but pitch it as *what Porchlight does*, never as an
+accusation about another app. "A safety feed that doesn't make you afraid of
+your neighbors" is the story a local reporter writes about, and it carries no
+legal freight. Let the reporter draw the comparison; that's their job, not
+yours, and it's far more credible coming from them.
 
 ### Storm Mode (Georgia-specific, high leverage)
 Georgia gets tornado outbreaks, ice storms, and hurricane remnants, and those
@@ -100,8 +132,12 @@ neighborhood completely, then the next.
    Old Fourth Ward, Kirkwood, East Atlanta Village, or Grant Park. Target 150
    households before touching a second.
 2. **Seed the supply side first.** Recruit 20–30 local businesses onto the free
-   tier by hand. Lead with the number: they're paying NextDoor $170 or nothing
-   at all. Free listing plus free ad boosts once they have reviews.
+   tier by hand. Lead with *our* number — "listing is free, Pro is $19/mo, and
+   we buy ads for well-reviewed businesses out of that revenue" — and let them
+   compare it to whatever they're paying now. **Ask, don't assert:** "What are
+   you paying to reach neighbors today?" gets you the real figure from the one
+   person who can actually verify it, and turns a sales pitch into a
+   conversation. Never quote a competitor's price back at them as fact.
 3. **Seed the barter side with an event.** A physical neighborhood tool-and-
    skill swap, with signup at the door. Barter is the reason to come back, but
    it needs critical mass to feel alive on day one.

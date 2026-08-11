@@ -66,15 +66,27 @@ Save them into the Downloads\Porchlight folder as `empty-feed.jpg`,
 `empty-barter.jpg`, `empty-messages.jpg`, `empty-events.jpg` and Claude will
 wire them into the EmptyState components.
 
-## 5. Business-facing ad creative (the $170 wedge — 1:1 and 9:16)
+## 5. Business-facing ad creative (1:1 and 9:16)
 
 This is your highest-value creative. It's for the outreach to the 50.
 
-> A bold minimalist graphic split diagonally. Left side deep ink #2b2420, right side warm amber #c2661b. Clean geometric composition with strong negative space in the center for large numbers to be added later. Flat design, no gradients, no text, no logos. High contrast, poster-like, modern.
+> A bold minimalist graphic split diagonally. Left side deep ink #2b2420, right side warm amber #c2661b. Clean geometric composition with strong negative space in the center for large text to be added later. Flat design, no gradients, no text, no logos. High contrast, poster-like, modern.
 
 Add the copy yourself in Canva rather than letting the model render text —
-generated text is usually malformed. Suggested overlay:
-**"$170 to reach your neighbors." / "Or $19. Or free."**
+generated text is usually malformed.
+
+**Overlay copy — use one of these:**
+
+- **"What are you paying to reach your neighbors?"** / *"Listing on Porchlight is free."*
+  ← strongest for the outreach. A question can't be false advertising, and it
+  gets the recipient to volunteer their own number, which is worth more than
+  you asserting it.
+- **"Free to be found. $19 to grow."**
+- **"$0 to list. Forever."**
+
+**Do not** put a competitor's name or price on any creative — see the rules at
+the top of `STRATEGY.md`. Every option above describes only our own pricing,
+so none of them can become false if someone else changes theirs.
 
 ## 6. Explainer video — 30 seconds (16:9)
 

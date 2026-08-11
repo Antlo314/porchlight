@@ -1,7 +1,11 @@
 # Porchlight
 
-Hyperlocal community app for Georgia neighborhoods (a NextDoor competitor).
+Hyperlocal community app for Georgia neighborhoods.
 Working name "Porchlight" — rename is a find/replace + metadata change.
+
+**Copy rule (legal):** user-facing text never names a competitor and never
+quotes a competitor's prices. Describe our own pricing only. See
+`docs/STRATEGY.md` for why.
 
 ## Commands
 

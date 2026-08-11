@@ -131,9 +131,11 @@ export const Plan = z.enum(["FREE", "LOCAL_PRO", "FEATURED"]);
 export type PlanValue = z.infer<typeof Plan>;
 
 /**
- * Pricing. Deliberately far under NextDoor's ~$170 service-posting fee — the
- * free tier is the acquisition wedge, and AD_BOOST_POOL_SHARE of paid revenue
- * funds free ad boosts for well-reviewed verified businesses.
+ * Pricing. The free tier is the acquisition wedge — a business can be listed,
+ * reviewed, and messaged without paying anything — and AD_BOOST_POOL_SHARE of
+ * paid revenue funds free ad boosts for well-reviewed verified businesses.
+ *
+ * Copy rule: describe OUR prices, never a competitor's. See docs/STRATEGY.md.
  */
 export const PLAN_META: Record<
   PlanValue,

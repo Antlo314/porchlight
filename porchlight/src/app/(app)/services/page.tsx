@@ -109,7 +109,7 @@ export default async function ServicesPage() {
         <p className="mt-1 text-sm text-ink-soft">
           {myBusiness
             ? "Update your listings, see your reviews, and check your plan."
-            : "List free, go Pro for $19/mo — not $170."}
+            : "List free. Go Pro for $19/mo when the work comes in."}
         </p>
       </Link>
 
