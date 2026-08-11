@@ -1,15 +1,30 @@
-// Porchlight data model
-// Dev: SQLite. Production: switch provider to "postgresql" — the schema is written
-// to be portable (no SQLite-only features; enums are modeled as String constants
-// validated by Zod in src/lib/validators.ts, since SQLite lacks native enums).
+// Porchlight data model — PostgreSQL (Neon) in both development and production.
+//
+// Prisma pins the provider at schema level, so dev and prod share one database
+// engine deliberately: the SQLite/Postgres split had already produced one real
+// bug. SQLite serializes every write, which silently hid a double-spend in the
+// credit ledger that Postgres READ COMMITTED would have allowed
+// (see the row lock in src/lib/credits.ts, and scripts/stress/race-credits.ts).
+// Matching engines means a race that passes locally actually means something.
+//
+// Enum-like fields are Strings validated by Zod in src/lib/validators.ts, and
+// `images`/`payload` are JSON strings — both carried over from the SQLite
+// schema and still fine on Postgres. Keep the value comments in sync.
+//
+// Local dev: point DATABASE_URL at a Neon *branch* of the same project, so
+// local and production schemas can never drift. See docs/DEPLOY.md.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider = "postgresql"
+  // Pooled connection for the app; serverless functions open many short-lived
+  // connections and would exhaust a direct one.
+  url       = env("DATABASE_URL")
+  // Migrations need a real session, which the pooler can't give them.
+  directUrl = env("DIRECT_URL")
 }
 
 // ─────────────────────────────────────────────────────────────

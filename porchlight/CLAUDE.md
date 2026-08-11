@@ -10,17 +10,24 @@ quotes a competitor's prices. Describe our own pricing only. See
 ## Commands
 
 - `npm run dev` — dev server (http://localhost:3000)
-- `npm run db:push` — sync prisma/schema.prisma to SQLite (dev.db)
+- `npm run db:migrate` — create + apply a migration (dev branch)
+- `npm run db:deploy` — apply existing migrations (production)
 - `npm run db:seed` — seed GA neighborhoods + demo data
-- `npm run db:reset` — wipe + re-push + re-seed
+- `npm run db:reset` — wipe + re-migrate + re-seed
 - `npm run build` — production build (run before declaring work done)
+
+**Requires a database.** Postgres in dev too — point `DATABASE_URL` and
+`DIRECT_URL` at a Neon dev branch (see `docs/DEPLOY.md`). There is no SQLite
+fallback: matching engines is deliberate, because the previous split hid a
+double-spend in the credit ledger that only Postgres would have exposed.
 
 Demo login: `demo@porchlight.app` / `porchlight1` (also maya@ / jerome@, same password).
 
 ## Architecture
 
 - Next.js App Router + TypeScript + Tailwind v4.
-- Prisma + SQLite in dev. **SQLite has no enums** — all enum-like fields are Strings; allowed values live in `src/lib/validators.ts` (Zod) and must stay in sync with the comments in `prisma/schema.prisma`. Production path: flip datasource to postgresql.
+- Prisma + PostgreSQL (Neon) in dev and production. Enum-like fields are Strings and `images`/`payload` are JSON strings — both carried over from the original SQLite schema; allowed values live in `src/lib/validators.ts` (Zod) and must stay in sync with the comments in `prisma/schema.prisma`.
+- Uploads: `src/lib/uploads.ts` writes to Vercel Blob when `BLOB_READ_WRITE_TOKEN` is set, else to `.uploads/` on disk. Never write to `public/` — Next fixes that directory's file list at build time, so runtime writes 404 in production.
 - Auth: custom JWT sessions (`src/lib/session.ts`, jose, httpOnly cookie), bcryptjs passwords. `requireUser()` from `src/lib/auth.ts` guards server components/actions; `src/middleware.ts` guards routes. No NextAuth.
 - Porch Credits: append-only ledger (`TradeCreditEntry`); balance is always SUM(delta) via `src/lib/credits.ts`. Never add a balance column, never delete ledger rows.
 - Route groups: `(auth)` = public login/signup; `(app)` = protected shell with `AppHeader` + `BottomNav` + `ToastProvider`.

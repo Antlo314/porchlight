@@ -1,16 +1,17 @@
 // Image uploads.
 //
-// Local-disk storage for now: zero config, works offline, keeps the launch
-// unblocked. It does NOT survive a Vercel deploy (their filesystem is
-// ephemeral), so before going live swap `storeImage` for an S3 presigned PUT or
-// UploadThing — every caller only ever sees the returned URL, so nothing else
-// changes.
+// Two backends, chosen by whether BLOB_READ_WRITE_TOKEN is set:
 //
-// Files live in `.uploads/` at the project root, NOT in `public/`. Next.js
-// builds its list of public files at BUILD time, so anything written there
-// afterwards 404s under `next start` — uploads would work in dev and silently
-// break in production. They are served instead by src/app/uploads/[name]/route.ts,
-// which reads from disk per request.
+//   Vercel Blob (production) — Vercel's filesystem is read-only outside /tmp
+//     and ephemeral, so writing to disk there fails outright. Blob returns an
+//     absolute CDN URL.
+//   Local disk (development) — no token needed, so `npm run dev` works with
+//     zero setup. Files land in `.uploads/` at the project root and are served
+//     by src/app/uploads/[name]/route.ts.
+//
+// Both return a URL string and nothing else in the app cares which produced it:
+// `images` columns hold absolute CDN URLs and relative /uploads paths side by
+// side, and imageUrlSchema in validators.ts accepts either.
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
@@ -32,9 +33,9 @@ export type UploadResult =
 
 /**
  * Magic-number sniff. A client can claim any Content-Type it likes, so the
- * declared type is treated as a hint and the bytes decide. Prevents storing an
- * HTML/SVG payload under an image extension, which is a stored-XSS vector when
- * the file is later served from our own origin.
+ * declared type is a hint and the bytes decide. Prevents storing an HTML or SVG
+ * payload under an image extension, which is stored XSS once it is served back
+ * from our own origin.
  */
 function sniff(bytes: Uint8Array): string | null {
   if (bytes.length < 12) return null;
@@ -60,6 +61,22 @@ function sniff(bytes: Uint8Array): string | null {
   return null;
 }
 
+export const UPLOAD_DIR = path.join(process.cwd(), ".uploads");
+
+/** Filenames storeImage produces. Anything else is refused before touching disk. */
+export const STORED_NAME_PATTERN = /^[a-z0-9]+-[a-f0-9]{16}\.(jpg|png|webp|gif)$/;
+
+export const CONTENT_TYPE_BY_EXT: Record<string, string> = {
+  jpg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  gif: "image/gif",
+};
+
+export function usingBlobStorage(): boolean {
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+}
+
 export async function storeImage(file: File): Promise<UploadResult> {
   if (file.size === 0) return { ok: false, error: "That file is empty." };
   if (file.size > MAX_UPLOAD_BYTES) {
@@ -74,30 +91,39 @@ export async function storeImage(file: File): Promise<UploadResult> {
 
   const ext = ALLOWED.get(actualType)!;
   // Random name: never trust the client's filename (path traversal, collisions,
-  // and it can leak whatever the uploader happened to call the file).
+  // and it leaks whatever the uploader happened to call the file).
   const name = `${Date.now().toString(36)}-${randomBytes(8).toString("hex")}.${ext}`;
 
-  await mkdir(UPLOAD_DIR, { recursive: true });
-  await writeFile(path.join(UPLOAD_DIR, name), bytes);
+  if (usingBlobStorage()) {
+    try {
+      // Imported lazily so local development never loads the SDK.
+      const { put } = await import("@vercel/blob");
+      // put() takes a Buffer/Blob/stream, not a bare Uint8Array.
+      const blob = await put(`porchlight/${name}`, Buffer.from(bytes), {
+        access: "public",
+        contentType: actualType,
+        // Our name is already random; Vercel's suffix would only make the URL
+        // longer and harder to reason about.
+        addRandomSuffix: false,
+      });
+      return { ok: true, url: blob.url };
+    } catch {
+      return { ok: false, error: "That upload didn't go through. Try again." };
+    }
+  }
 
-  return { ok: true, url: `/uploads/${name}` };
+  try {
+    await mkdir(UPLOAD_DIR, { recursive: true });
+    await writeFile(path.join(UPLOAD_DIR, name), bytes);
+    return { ok: true, url: `/uploads/${name}` };
+  } catch {
+    return { ok: false, error: "That upload didn't go through. Try again." };
+  }
 }
 
-export const UPLOAD_DIR = path.join(process.cwd(), ".uploads");
-
-/** Filenames storeImage produces. Anything else is refused before touching disk. */
-export const STORED_NAME_PATTERN = /^[a-z0-9]+-[a-f0-9]{16}\.(jpg|png|webp|gif)$/;
-
-export const CONTENT_TYPE_BY_EXT: Record<string, string> = {
-  jpg: "image/jpeg",
-  png: "image/png",
-  webp: "image/webp",
-  gif: "image/gif",
-};
-
 /**
- * Images are stored as relative paths, but validators use z.string().url().
- * Accept both so a pasted external link still works.
+ * Images are stored as either a relative /uploads path (local) or an absolute
+ * CDN URL (Blob), so both shapes have to be accepted wherever one is read.
  */
 export function isStoredImageUrl(value: string): boolean {
   if (value.startsWith("/uploads/")) return !value.includes("..");
