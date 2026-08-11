@@ -1,6 +1,7 @@
-// Photo grid for a post. Images are arbitrary user-supplied URLs (no upload
-// host is wired up yet), so they render through a plain <img> rather than
-// next/image, which would require every host to be allowlisted first.
+// Photo grid for a post. Sources are either our own uploads ("/uploads/…",
+// relative) or an external link, so they render through a plain <img> — which
+// resolves relative paths natively — rather than next/image, which would need
+// every external host allowlisted first.
 
 export function PostImages({
   images,

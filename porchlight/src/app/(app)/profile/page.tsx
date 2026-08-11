@@ -188,6 +188,18 @@ export default async function ProfilePage() {
         </li>
       </ul>
 
+      <SectionHeading title="Grow the block" />
+      <ul className="space-y-2">
+        <li>
+          <ProfileLinkRow
+            href="/invite"
+            icon="💌"
+            label="Invite a neighbor"
+            sub="Share your link — you both earn Porch Credits"
+          />
+        </li>
+      </ul>
+
       <SectionHeading title="Account" />
       <ul className="space-y-2">
         <li>

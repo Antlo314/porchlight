@@ -3,6 +3,17 @@ import { verifySessionToken, SESSION_COOKIE } from "@/lib/session";
 
 const PUBLIC_PATHS = ["/", "/login", "/signup", "/api/auth/login", "/api/auth/signup", "/api/neighborhoods"];
 
+/**
+ * Invite landing pages are public: /join/<code> is the first screen an invited
+ * neighbor sees, before they have an account. PUBLIC_PATHS is exact-match only,
+ * so this is the one prefix exception — and it stays anchored to the /join
+ * segment (`/join` itself, or anything under `/join/`) so it can't widen to a
+ * route like /joinsomething-protected.
+ */
+function isPublicInvitePath(pathname: string) {
+  return pathname === "/join" || pathname.startsWith("/join/");
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
@@ -14,6 +25,7 @@ export async function middleware(req: NextRequest) {
 
   if (
     PUBLIC_PATHS.includes(pathname) ||
+    isPublicInvitePath(pathname) ||
     pathname.startsWith("/_next") ||
     isStaticAsset
   ) {

@@ -10,6 +10,7 @@ import {
   Field,
   FormError,
   Input,
+  SingleImageUploader,
   Textarea,
   useToast,
 } from "@/components/ui";
@@ -17,12 +18,6 @@ import type { ProfileActionResult, ProfileFormValues } from "./types";
 
 const NAME_MAX = 60;
 const BIO_MAX = 500;
-
-/** Only render a live preview image once the URL is plausibly loadable. */
-function previewSrc(raw: string): string | null {
-  const trimmed = raw.trim();
-  return /^https?:\/\/\S+$/i.test(trimmed) ? trimmed : null;
-}
 
 export function EditProfileForm({
   initial,
@@ -43,7 +38,9 @@ export function EditProfileForm({
   const toast = useToast();
 
   const displayName = name.trim() || initial.name || "You";
-  const src = previewSrc(avatarUrl);
+  // Uploads come back as "/uploads/…", which <img> resolves natively — no
+  // http(s) gate on the preview any more.
+  const src = avatarUrl.trim() || null;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -107,27 +104,20 @@ export function EditProfileForm({
         </div>
       </Field>
 
-      <Field
-        label="Photo link"
-        hint="Paste a link to a photo of yourself. Leave it blank for your initials."
-        error={fieldErrors.avatarUrl}
-      >
-        <Input
-          value={avatarUrl}
-          onChange={(e) => setAvatarUrl(e.target.value)}
-          type="url"
-          inputMode="url"
-          placeholder="https://example.com/me.jpg"
-          autoComplete="photo"
+      <div>
+        <SingleImageUploader
+          value={avatarUrl || null}
+          onChange={(url) => setAvatarUrl(url ?? "")}
+          label="Profile photo"
+          hint="Optional — leave it off and neighbors see your initials."
+          shape="circle"
         />
-      </Field>
-
-      {avatarUrl.trim() && !src && (
-        <p className="text-sm text-ink-soft">
-          That doesn&apos;t look like a link yet — it needs to start with
-          https://
-        </p>
-      )}
+        {fieldErrors.avatarUrl && (
+          <p className="mt-1.5 text-sm text-red-600">
+            {fieldErrors.avatarUrl}
+          </p>
+        )}
+      </div>
 
       <FormError>{error}</FormError>
 

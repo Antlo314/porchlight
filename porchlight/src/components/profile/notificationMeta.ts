@@ -44,6 +44,16 @@ export const NOTIFICATION_META: Record<
     label: "Review",
     iconClass: "bg-porch-100",
   },
+  JOB_REQUEST: {
+    icon: "🧰",
+    label: "Job request",
+    iconClass: "bg-porch-100",
+  },
+  JOB_REPLY: {
+    icon: "📬",
+    label: "Pro replied",
+    iconClass: "bg-pine-500/10",
+  },
   SYSTEM: {
     icon: "🏮",
     label: "Porchlight",
@@ -63,6 +73,8 @@ const FALLBACK_TEXT: Record<NotificationType, string> = {
   OFFER_DECLINED: "passed on your offer",
   RSVP: "responded to your event",
   REVIEW: "left a review",
+  JOB_REQUEST: "asked the block for help with a job",
+  JOB_REPLY: "replied to your job request",
   SYSTEM: "There's an update from Porchlight",
 };
 

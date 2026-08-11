@@ -29,6 +29,7 @@ model User {
   addressLine    String? // used only for residency verification, never public
   verifiedAt     DateTime? // neighborhood residency verified
   karma          Int      @default(0) // earned via helpful posts, completed trades
+  inviteCode     String?  @unique // 8-char share code, generated lazily on first use
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -47,6 +48,7 @@ model User {
   follows          NeighborhoodFollow[]
   eventRsvps       EventRsvp[]
   boostEvents      BoostEvent[]
+  jobRequests      JobRequest[]
 }
 
 model Neighborhood {
@@ -65,6 +67,7 @@ model Neighborhood {
   barterListings BarterListing[]
   businesses     Business[]
   followers      NeighborhoodFollow[]
+  jobRequests    JobRequest[]
 }
 
 // Members see their home neighborhood plus any they follow (nearby areas).
@@ -238,7 +241,7 @@ model TradeCreditEntry {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   delta     Int      // positive = earned, negative = spent
-  reason    String   // SIGNUP_BONUS | TRADE_EARNED | TRADE_SPENT | COMMUNITY_REWARD | ADJUSTMENT
+  reason    String   // SIGNUP_BONUS | TRADE_EARNED | TRADE_SPENT | COMMUNITY_REWARD | INVITE_BONUS | ADJUSTMENT
   offerId   String?
   offer     BarterOffer? @relation(fields: [offerId], references: [id])
   createdAt DateTime @default(now())
@@ -270,6 +273,7 @@ model Business {
   subscription Subscription?
   reviews      Review[]
   adBoosts     AdBoost[]
+  jobReplies   JobReply[]
 }
 
 model ServiceListing {
@@ -354,6 +358,46 @@ model Review {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Job requests — the reverse marketplace
+// ─────────────────────────────────────────────────────────────
+
+// A neighbor posts what they need done; local pros reply FREE. Businesses pay
+// for standing presence (Subscription), never for the right to answer a
+// neighbor who asked. That asymmetry is deliberate — see docs/STRATEGY.md.
+model JobRequest {
+  id             String   @id @default(cuid())
+  requesterId    String
+  requester      User     @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+  neighborhoodId String
+  neighborhood   Neighborhood @relation(fields: [neighborhoodId], references: [id])
+  title          String
+  description    String
+  category       String   // BusinessCategory values (validators.ts)
+  budgetInfo     String?  // freeform: "under $200", "quote me"
+  images         String   @default("[]") // JSON array of URLs
+  status         String   @default("OPEN") // OPEN | FULFILLED | CLOSED
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  replies JobReply[]
+
+  @@index([neighborhoodId, status, createdAt])
+}
+
+model JobReply {
+  id         String   @id @default(cuid())
+  jobId      String
+  job        JobRequest @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  message    String
+  quoteInfo  String?  // freeform: "$150 flat", "free estimate"
+  createdAt  DateTime @default(now())
+
+  @@unique([jobId, businessId]) // one reply per business per job
+}
+
+// ─────────────────────────────────────────────────────────────
 // Notifications & moderation
 // ─────────────────────────────────────────────────────────────
 
@@ -361,7 +405,7 @@ model Notification {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      String   // NEW_COMMENT | NEW_MESSAGE | OFFER_RECEIVED | OFFER_ACCEPTED | OFFER_DECLINED | RSVP | REVIEW | SYSTEM
+  type      String   // NEW_COMMENT | NEW_MESSAGE | OFFER_RECEIVED | OFFER_ACCEPTED | OFFER_DECLINED | RSVP | REVIEW | JOB_REQUEST | JOB_REPLY | SYSTEM
   payload   String   @default("{}") // JSON: ids/links needed to render + navigate
   readAt    DateTime?
   createdAt DateTime @default(now())

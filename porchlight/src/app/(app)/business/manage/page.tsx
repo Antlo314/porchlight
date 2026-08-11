@@ -21,6 +21,7 @@ import {
 } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { parseImages } from "@/lib/json";
 import { BUSINESS_CATEGORY_META, PLAN_META } from "@/lib/validators";
 
 function formatPeriodEnd(date: Date): string {
@@ -65,12 +66,15 @@ export default async function ManageBusinessPage() {
     (b) => b.startsAt <= now && b.endsAt >= now
   );
 
+  // `images` has to travel with the row: the edit sheet sends back the full
+  // gallery, so a row that arrives without it would save an empty one.
   const listings: ServiceListingRow[] = business.services.map((s) => ({
     id: s.id,
     title: s.title,
     description: s.description,
     priceInfo: s.priceInfo,
     status: toListingStatus(s.status),
+    images: parseImages(s.images),
   }));
 
   return (
@@ -120,6 +124,7 @@ export default async function ManageBusinessPage() {
               description: business.description,
               phone: business.phone ?? "",
               website: business.website ?? "",
+              logoUrl: business.logoUrl ?? "",
             }}
           />
         </div>

@@ -15,7 +15,8 @@ export type CreateListingInput = {
   wants?: string;
   /** Raw string from the form; the schema coerces it. */
   creditValue?: string;
-  imageUrl?: string;
+  /** Already-uploaded URLs from <ImageUploader>. */
+  images?: string[];
 };
 
 export type CreateListingResult =
@@ -27,8 +28,6 @@ export async function createListingAction(
 ): Promise<CreateListingResult> {
   const user = await requireUser();
 
-  const imageUrl = blankToUndefined(input.imageUrl);
-
   const parsed = createBarterListingSchema.safeParse({
     kind: input.kind,
     title: input.title,
@@ -36,7 +35,8 @@ export async function createListingAction(
     category: input.category,
     wants: blankToUndefined(input.wants),
     creditValue: blankToUndefined(input.creditValue),
-    images: imageUrl ? [imageUrl] : [],
+    // The schema caps the gallery (imageListSchema.max(6)); no truncation here.
+    images: input.images ?? [],
   });
 
   if (!parsed.success) {

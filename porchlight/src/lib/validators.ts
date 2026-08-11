@@ -2,6 +2,23 @@
 // prisma/schema.prisma (SQLite has no native enums). Keep the two in sync.
 import { z } from "zod";
 
+/**
+ * An image reference: either one we stored (`/uploads/…`, relative) or an
+ * external link someone pasted. Plain `z.string().url()` rejects the former,
+ * so every images field uses this instead.
+ */
+export const imageUrlSchema = z
+  .string()
+  .trim()
+  .refine(
+    (v) =>
+      (v.startsWith("/uploads/") && !v.includes("..")) ||
+      /^https?:\/\/\S+$/i.test(v),
+    "That doesn't look like an image link"
+  );
+
+export const imageListSchema = z.array(imageUrlSchema).max(6).default([]);
+
 // ─────────────────────────────────────────────────────────────
 // Enum-likes
 // ─────────────────────────────────────────────────────────────
@@ -235,7 +252,7 @@ export const createPostSchema = z
     type: PostType,
     title: z.string().trim().max(120).optional(),
     body: z.string().trim().min(1, "Say something first").max(5000),
-    images: z.array(z.string().url()).max(6).default([]),
+    images: imageListSchema,
     // Event posts only
     startsAt: z.coerce.date().optional(),
     endsAt: z.coerce.date().optional(),
@@ -277,7 +294,7 @@ export const createBarterListingSchema = z.object({
   category: BarterCategory,
   wants: z.string().trim().max(500).optional(),
   creditValue: z.coerce.number().int().min(1).max(10000).optional(),
-  images: z.array(z.string().url()).max(6).default([]),
+  images: imageListSchema,
 });
 
 export const createBarterOfferSchema = z
@@ -321,6 +338,8 @@ export const createBusinessSchema = z.object({
   description: z.string().trim().min(10, "Tell neighbors what you do").max(2000),
   phone: z.string().trim().max(30).optional().or(z.literal("")),
   website: z.string().url("Enter a full URL").optional().or(z.literal("")),
+  // imageUrlSchema, not .url(): the logo picker returns a relative /uploads path.
+  logoUrl: imageUrlSchema.optional().or(z.literal("")),
 });
 
 export const createServiceListingSchema = z.object({
@@ -328,7 +347,7 @@ export const createServiceListingSchema = z.object({
   title: z.string().trim().min(3).max(100),
   description: z.string().trim().min(1).max(2000),
   priceInfo: z.string().trim().max(60).optional().or(z.literal("")),
-  images: z.array(z.string().url()).max(6).default([]),
+  images: imageListSchema,
 });
 
 export const createReviewSchema = z.object({
@@ -338,13 +357,61 @@ export const createReviewSchema = z.object({
 });
 
 // ─────────────────────────────────────────────────────────────
+// Job requests — the reverse marketplace
+// ─────────────────────────────────────────────────────────────
+
+export const createJobRequestSchema = z.object({
+  title: z.string().trim().min(5, "Say what you need in a few words").max(100),
+  description: z
+    .string()
+    .trim()
+    .min(10, "A sentence or two helps pros quote accurately")
+    .max(2000),
+  category: BusinessCategory,
+  budgetInfo: z.string().trim().max(60).optional().or(z.literal("")),
+  images: imageListSchema,
+});
+
+export const createJobReplySchema = z.object({
+  jobId: z.string().min(1),
+  message: z.string().trim().min(1, "Introduce yourself").max(1000),
+  quoteInfo: z.string().trim().max(60).optional().or(z.literal("")),
+});
+
+export const jobStatusSchema = z.object({
+  jobId: z.string().min(1),
+  status: z.enum(["OPEN", "FULFILLED", "CLOSED"]),
+});
+
+// ─────────────────────────────────────────────────────────────
+// Invites
+// ─────────────────────────────────────────────────────────────
+
+export const inviteCodeSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^[A-Z2-9]{8}$/, "That invite code doesn't look right");
+
+/** Signup arriving through an invite link: neighborhood comes from the code. */
+export const invitedSignupSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  name: z.string().min(2).max(60),
+  inviteCode: inviteCodeSchema,
+});
+
+// ─────────────────────────────────────────────────────────────
 // Profile & moderation
 // ─────────────────────────────────────────────────────────────
 
 export const updateProfileSchema = z.object({
   name: z.string().trim().min(2).max(60),
   bio: z.string().trim().max(500).optional().or(z.literal("")),
-  avatarUrl: z.string().url().optional().or(z.literal("")),
+  // imageUrlSchema, not .url(): the avatar picker returns a relative /uploads
+  // path, which z.string().url() rejects — that made every save fail after a
+  // photo was chosen.
+  avatarUrl: imageUrlSchema.optional().or(z.literal("")),
 });
 
 export const createReportSchema = z.object({

@@ -14,7 +14,10 @@ import type {
 const FRIENDLY: Record<string, string> = {
   name: "Names need at least 2 characters.",
   bio: "That bio is too long — keep it under 500 characters.",
-  avatarUrl: "Use a full image link starting with https://",
+  // Uploading is the normal path now, so lead with that; a pasted link still
+  // works, which is why the fallback is mentioned second.
+  avatarUrl:
+    "That photo didn't come through — try uploading it again, or paste a full https:// image link.",
 };
 
 function toFieldErrors(error: ZodError): Record<string, string> {

@@ -16,11 +16,12 @@ function firstError(error: z.ZodError): string {
   return error.issues[0]?.message ?? "Please check the form and try again.";
 }
 
-// Derived from the shared create schema so the two can't drift. Images are
-// omitted deliberately: the manage form doesn't edit them, and defaulting them
-// to [] here would silently wipe an existing gallery.
+// Derived from the shared create schema so the two can't drift. Only
+// businessId is omitted — it's resolved from the session, never the client.
+// Images stay in: the edit sheet loads the existing gallery and sends it back,
+// so what arrives is the full desired set, not a partial patch.
 const updateServiceListingSchema = createServiceListingSchema
-  .omit({ businessId: true, images: true })
+  .omit({ businessId: true })
   .extend({ listingId: z.string().min(1) });
 
 const listingIdSchema = z.string().min(1);
@@ -68,7 +69,7 @@ export async function updateBusiness(input: unknown): Promise<ActionResult> {
     return { ok: false, error: "You don't have a business to edit." };
   }
 
-  const { name, category, description, phone, website } = parsed.data;
+  const { name, category, description, phone, website, logoUrl } = parsed.data;
 
   await db.business.update({
     where: { id: business.id },
@@ -78,6 +79,7 @@ export async function updateBusiness(input: unknown): Promise<ActionResult> {
       description,
       phone: phone ? phone : null,
       website: website ? website : null,
+      logoUrl: logoUrl ? logoUrl : null,
     },
   });
 
@@ -152,7 +154,7 @@ export async function updateServiceListing(
   const parsed = updateServiceListingSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
 
-  const { listingId, title, description, priceInfo } = parsed.data;
+  const { listingId, title, description, priceInfo, images } = parsed.data;
   const listing = await ownedListing(user.id, listingId);
   if (!listing) return { ok: false, error: "That listing isn't yours." };
 
@@ -162,6 +164,7 @@ export async function updateServiceListing(
       title,
       description,
       priceInfo: priceInfo ? priceInfo : null,
+      images: serializeImages(images),
     },
   });
 

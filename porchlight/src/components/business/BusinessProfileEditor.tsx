@@ -5,7 +5,13 @@ import { Button, Sheet } from "@/components/ui";
 import { updateBusiness } from "@/app/(app)/business/manage/actions";
 import { BusinessForm, type BusinessFormValues } from "./BusinessForm";
 
-/** "Edit details" on the owner dashboard — same form as onboarding, in a sheet. */
+/**
+ * "Edit details" on the owner dashboard — same form as onboarding, in a sheet.
+ *
+ * Logo editing isn't duplicated here: the picker lives in BusinessForm so
+ * onboarding and editing stay one implementation. Pass `initial.logoUrl` and
+ * the current logo shows up already loaded in the picker.
+ */
 export function BusinessProfileEditor({
   initial,
 }: {

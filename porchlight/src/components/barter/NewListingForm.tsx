@@ -8,6 +8,7 @@ import {
   CharCount,
   Field,
   FormError,
+  ImageUploader,
   Input,
   Select,
   Spinner,
@@ -24,6 +25,9 @@ import {
 } from "@/lib/validators";
 import { createListingAction } from "@/app/(app)/barter/new/actions";
 import { CREDITS_PER_HOUR } from "./meta";
+
+/** Matches imageListSchema.max(6) — the server rejects anything past this. */
+const IMAGE_MAX = 6;
 
 /** Sensible starting category per kind, until the user picks one themselves. */
 const DEFAULT_CATEGORY: Record<BarterKindValue, BarterCategoryValue> = {
@@ -45,7 +49,7 @@ export function NewListingForm() {
   const [wants, setWants] = useState("");
   const [credits, setCredits] = useState("");
   const [hours, setHours] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const [images, setImages] = useState<string[]>([]);
 
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -81,7 +85,7 @@ export function NewListingForm() {
         category,
         wants,
         creditValue,
-        imageUrl,
+        images,
       });
 
       if (result.ok) {
@@ -149,6 +153,25 @@ export function NewListingForm() {
           autoComplete="off"
         />
       </Field>
+
+      {/* Above the details on purpose: a listing with a photo gets traded, one
+          without usually just sits there. */}
+      <div>
+        <ImageUploader
+          images={images}
+          onChange={setImages}
+          max={IMAGE_MAX}
+          label="Photos"
+          hint={
+            isTime
+              ? `Optional — a photo of you at work helps neighbors say yes. Up to ${IMAGE_MAX}.`
+              : `Show neighbors the actual thing. Up to ${IMAGE_MAX} — the first one leads.`
+          }
+        />
+        {fieldErrors.images && (
+          <p className="mt-1.5 text-sm text-red-600">{fieldErrors.images}</p>
+        )}
+      </div>
 
       <Field label="Details" required error={fieldErrors.description}>
         <Textarea
@@ -232,21 +255,6 @@ export function NewListingForm() {
           />
         </Field>
       )}
-
-      <Field
-        label="Photo link"
-        error={fieldErrors.images}
-        hint="Optional — paste an image URL."
-      >
-        <Input
-          value={imageUrl}
-          onChange={(e) => setImageUrl(e.target.value)}
-          type="url"
-          inputMode="url"
-          placeholder="https://…"
-          autoComplete="off"
-        />
-      </Field>
 
       <FormError>{error}</FormError>
 

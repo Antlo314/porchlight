@@ -12,6 +12,7 @@ import {
   EmptyState,
   Field,
   FormError,
+  ImageUploader,
   Input,
   Sheet,
   Textarea,
@@ -29,6 +30,7 @@ import type { ServiceListingRow } from "./types";
 const TITLE_MAX = 100;
 const DESCRIPTION_MAX = 2000;
 const PRICE_MAX = 60;
+const IMAGE_MAX = 6;
 
 type Editing =
   | { mode: "create" }
@@ -253,6 +255,7 @@ function ListingSheet({
   const [title, setTitle] = useState(listing?.title ?? "");
   const [description, setDescription] = useState(listing?.description ?? "");
   const [priceInfo, setPriceInfo] = useState(listing?.priceInfo ?? "");
+  const [images, setImages] = useState<string[]>(listing?.images ?? []);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -263,6 +266,7 @@ function ListingSheet({
     setTitle(listing?.title ?? "");
     setDescription(listing?.description ?? "");
     setPriceInfo(listing?.priceInfo ?? "");
+    setImages(listing?.images ?? []);
     setError(null);
   }, [editing, listing]);
 
@@ -277,8 +281,14 @@ function ListingSheet({
             title,
             description,
             priceInfo,
+            images,
           })
-        : await createServiceListing({ title, description, priceInfo });
+        : await createServiceListing({
+            title,
+            description,
+            priceInfo,
+            images,
+          });
 
       if (result.ok) {
         onSaved(listing ? "Listing updated" : "Listing published");
@@ -326,6 +336,14 @@ function ListingSheet({
             placeholder="from $95"
           />
         </Field>
+
+        <ImageUploader
+          images={images}
+          onChange={setImages}
+          max={IMAGE_MAX}
+          label="Photos of your work"
+          hint={`Optional, but finished work sells the job. Up to ${IMAGE_MAX}.`}
+        />
 
         <FormError>{error}</FormError>
 

@@ -34,6 +34,8 @@ export type ServiceListingRow = {
   description: string;
   priceInfo: string | null;
   status: "ACTIVE" | "PAUSED";
+  /** Already parsed out of the JSON column via `parseImages`. */
+  images: string[];
 };
 
 /** Uniform result shape every action in this vertical returns to the client. */

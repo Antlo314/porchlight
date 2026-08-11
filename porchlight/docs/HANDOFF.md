@@ -43,6 +43,24 @@ private profiles, notification center, events calendar with RSVPs, neighborhood
 follow/discovery, a moderator report queue, and an installable PWA with
 manifest, icons, and a service worker.
 
+## Launch blockers (fix before real signups)
+
+- **No email verification.** Nothing proves an address belongs to whoever typed
+  it, so `SIGNUP_BONUS` (25 credits) can be minted per throwaway email, and the
+  invite loop compounds it. Invite bonuses are now capped daily and for life
+  (`INVITE_BONUS_DAILY_CAP` / `INVITE_BONUS_LIFETIME_CAP` in `src/lib/invites.ts`),
+  which bounds the damage — but the real fix is a verify-email step before any
+  credit is granted. **Porch Credits are the community's currency; if they can
+  be manufactured, the barter economy is worth nothing.**
+- **No rate limiting on `POST /api/auth/signup`.** It is public by necessity.
+  Add IP + email throttling at the edge (Vercel middleware or Upstash) before
+  launch.
+- **Uploads write to local disk** (`public/uploads`) with no per-user quota. Fine
+  for development, but a Vercel filesystem is ephemeral — uploads vanish on
+  redeploy. Swap `storeImage` in `src/lib/uploads.ts` for S3/UploadThing and add
+  a per-member ceiling at the same time. Every caller only sees the returned
+  URL, so nothing else changes.
+
 ## Known gaps (deliberate)
 
 - **Stripe is not connected.** Choosing a plan switches it immediately and

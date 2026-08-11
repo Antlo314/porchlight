@@ -1,109 +1,41 @@
-"use client";
+import { SignupForm } from "@/components/invite/SignupForm";
+import { SIGNUP_BONUS } from "@/lib/credits";
+import { INVITE_BONUS_JOINER, resolveInvite } from "@/lib/invites";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+export const metadata = { title: "Join your neighborhood" };
 
-type Neighborhood = { id: string; name: string; city: string; county: string };
-
-export default function SignupPage() {
-  const router = useRouter();
-  const [neighborhoods, setNeighborhoods] = useState<Neighborhood[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/neighborhoods")
-      .then((r) => r.json())
-      .then(setNeighborhoods)
-      .catch(() => setError("Couldn't load neighborhoods"));
-  }, []);
-
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    const form = new FormData(e.currentTarget);
-    const res = await fetch("/api/auth/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: form.get("name"),
-        email: form.get("email"),
-        password: form.get("password"),
-        neighborhoodId: form.get("neighborhoodId"),
-      }),
-    });
-    if (res.ok) {
-      router.push("/feed");
-      router.refresh();
-    } else {
-      setError((await res.json()).error ?? "Something went wrong");
-      setBusy(false);
-    }
-  }
+/**
+ * Server shell for signup. An ?invite=CODE is resolved here rather than in the
+ * browser so the form can be certain about the neighborhood before it renders
+ * — and so the code, not the client, decides where the account lands.
+ */
+export default async function SignupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ invite?: string | string[] }>;
+}) {
+  const params = await searchParams;
+  const raw = Array.isArray(params.invite) ? params.invite[0] : params.invite;
+  const invite = await resolveInvite(raw);
 
   return (
-    <main className="mx-auto max-w-md px-6 py-12">
-      <Link href="/" className="text-2xl">🏮</Link>
-      <h1 className="mt-4 text-2xl font-bold">Join your neighborhood</h1>
-      <p className="mt-2 text-sm text-ink-soft">
-        You&apos;ll start with 25 Porch Credits to trade with.
-      </p>
-      <form onSubmit={onSubmit} className="mt-8 space-y-4">
-        <input
-          name="name"
-          required
-          placeholder="Your name"
-          autoComplete="name"
-          className="w-full rounded-card border border-line bg-card px-4 py-3.5 outline-none focus:border-porch-500"
-        />
-        <input
-          name="email"
-          type="email"
-          required
-          placeholder="Email"
-          autoComplete="email"
-          className="w-full rounded-card border border-line bg-card px-4 py-3.5 outline-none focus:border-porch-500"
-        />
-        <input
-          name="password"
-          type="password"
-          required
-          minLength={8}
-          placeholder="Password (8+ characters)"
-          autoComplete="new-password"
-          className="w-full rounded-card border border-line bg-card px-4 py-3.5 outline-none focus:border-porch-500"
-        />
-        <select
-          name="neighborhoodId"
-          required
-          defaultValue=""
-          className="w-full rounded-card border border-line bg-card px-4 py-3.5 outline-none focus:border-porch-500"
-        >
-          <option value="" disabled>
-            Pick your neighborhood
-          </option>
-          {neighborhoods.map((n) => (
-            <option key={n.id} value={n.id}>
-              {n.name} — {n.city}
-            </option>
-          ))}
-        </select>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <button
-          disabled={busy}
-          className="w-full rounded-card bg-porch-600 py-3.5 font-semibold text-white active:bg-porch-700 disabled:opacity-60"
-        >
-          {busy ? "Creating account…" : "Create account"}
-        </button>
-      </form>
-      <p className="mt-6 text-center text-sm text-ink-soft">
-        Already a member?{" "}
-        <Link href="/login" className="font-semibold text-porch-700">
-          Log in
-        </Link>
-      </p>
-    </main>
+    <SignupForm
+      // Display fields only — the inviter's id never leaves the server.
+      invite={
+        invite
+          ? {
+              code: invite.code,
+              inviterName: invite.inviterName,
+              neighborhoodName: invite.neighborhoodName,
+              city: invite.city,
+            }
+          : null
+      }
+      inviteAttempted={Boolean(raw?.trim())}
+      // Passed as props: the bonus constants live in server-only modules that
+      // import Prisma, which must not be pulled into the client bundle.
+      signupBonus={SIGNUP_BONUS}
+      inviteBonus={INVITE_BONUS_JOINER}
+    />
   );
 }

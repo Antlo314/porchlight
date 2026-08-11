@@ -7,6 +7,7 @@ import {
   CharCount,
   Field,
   FormError,
+  ImageUploader,
   Input,
   Spinner,
   Textarea,
@@ -41,23 +42,9 @@ export function PostComposer({
   const [endsAt, setEndsAt] = useState("");
   const [location, setLocation] = useState("");
   const [images, setImages] = useState<string[]>([]);
-  const [photoUrl, setPhotoUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const isEvent = type === "EVENT";
-
-  function addPhoto() {
-    const url = photoUrl.trim();
-    if (!url) return;
-    if (!/^https?:\/\//i.test(url)) {
-      setError("Photo links must start with http:// or https://");
-      return;
-    }
-    if (images.length >= MAX_IMAGES) return;
-    setImages((prev) => [...prev, url]);
-    setPhotoUrl("");
-    setError(null);
-  }
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -195,67 +182,12 @@ export function PostComposer({
         </div>
       )}
 
-      <Field
-        label="Photos"
-        hint={`Paste a photo link (up to ${MAX_IMAGES}).`}
-      >
-        <div className="flex gap-2">
-          <Input
-            type="url"
-            inputMode="url"
-            value={photoUrl}
-            onChange={(e) => setPhotoUrl(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                addPhoto();
-              }
-            }}
-            placeholder="https://…"
-            disabled={images.length >= MAX_IMAGES}
-          />
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={addPhoto}
-            disabled={!photoUrl.trim() || images.length >= MAX_IMAGES}
-            className="shrink-0"
-          >
-            Add
-          </Button>
-        </div>
-        {images.length > 0 && (
-          <ul className="mt-2 grid grid-cols-3 gap-2">
-            {images.map((src, i) => (
-              <li key={`${src}-${i}`} className="relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={src}
-                  alt=""
-                  className="aspect-square w-full rounded-xl border border-line bg-line/50 object-cover"
-                />
-                <button
-                  type="button"
-                  aria-label="Remove photo"
-                  onClick={() =>
-                    setImages((prev) => prev.filter((_, j) => j !== i))
-                  }
-                  className="absolute -right-4 -top-4 flex h-11 w-11 items-center justify-center"
-                >
-                  {/* 44px hit area, 28px badge — the offset keeps the badge
-                      visually pinned to the thumbnail corner. */}
-                  <span
-                    aria-hidden
-                    className="flex h-7 w-7 items-center justify-center rounded-full bg-ink text-sm text-white"
-                  >
-                    ✕
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Field>
+      <ImageUploader
+        images={images}
+        onChange={setImages}
+        max={MAX_IMAGES}
+        hint={`Optional. Up to ${MAX_IMAGES} photos, straight from your camera roll.`}
+      />
 
       <FormError>{error}</FormError>
 

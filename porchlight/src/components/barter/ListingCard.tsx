@@ -28,12 +28,14 @@ export function ListingCard({ listing }: { listing: ListingCardData }) {
     <CardLink href={`/barter/${listing.id}`} padded={false}>
       <div className="flex gap-3 p-4">
         {cover && (
-          // eslint-disable-next-line @next/next/no-img-element -- listing photos
-          // are arbitrary user-supplied URLs; next/image needs an allowlist.
+          // eslint-disable-next-line @next/next/no-img-element -- covers are
+          // either our own "/uploads/…" (relative, which <img> resolves
+          // natively) or an external link; next/image needs an allowlist.
           <img
             src={cover}
             alt=""
-            className="h-20 w-20 shrink-0 rounded-xl border border-line object-cover"
+            loading="lazy"
+            className="h-20 w-20 shrink-0 rounded-xl border border-line bg-line/50 object-cover"
           />
         )}
 

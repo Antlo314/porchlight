@@ -9,6 +9,7 @@ import {
 } from "@/components/business/types";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { pluralize } from "@/lib/format";
 import { visibleNeighborhoodIds } from "@/lib/visibility";
 
 /**
@@ -28,9 +29,11 @@ export default async function ServicesPage() {
   const user = await requireUser();
   const now = new Date();
 
-  const [rows, myBusiness] = await Promise.all([
+  const neighborhoodIds = await visibleNeighborhoodIds(user);
+
+  const [rows, myBusiness, openJobs] = await Promise.all([
     db.business.findMany({
-      where: { neighborhoodId: { in: await visibleNeighborhoodIds(user) } },
+      where: { neighborhoodId: { in: neighborhoodIds } },
       include: {
         reviews: { select: { rating: true } },
         subscription: { select: { plan: true, status: true } },
@@ -44,6 +47,9 @@ export default async function ServicesPage() {
     db.business.findFirst({
       where: { ownerId: user.id },
       select: { id: true },
+    }),
+    db.jobRequest.count({
+      where: { neighborhoodId: { in: neighborhoodIds }, status: "OPEN" },
     }),
   ]);
 
@@ -98,6 +104,27 @@ export default async function ServicesPage() {
           Neighbors in {user.neighborhood.name} vouching for neighbors.
         </p>
       </header>
+
+      {/* Entry point for the job board. It has no tab of its own (five is the
+          limit at 375px), so Services is where neighbors and pros find it. */}
+      <Link
+        href="/jobs"
+        className="flex min-h-14 items-center justify-between rounded-card border border-line bg-card px-4 transition-transform duration-100 active:scale-[0.99] active:bg-porch-50/50"
+      >
+        <span className="min-w-0">
+          <span className="block text-[15px] font-semibold">
+            <span aria-hidden>🧰</span> Need something done?
+          </span>
+          <span className="block text-sm text-ink-soft">
+            {openJobs > 0
+              ? `${pluralize(openJobs, "neighbor")} asking for help right now`
+              : "Post a job and let local pros come to you"}
+          </span>
+        </span>
+        <span aria-hidden className="shrink-0 text-ink-soft">
+          →
+        </span>
+      </Link>
 
       <Link
         href={myBusiness ? "/business/manage" : "/business/pricing"}

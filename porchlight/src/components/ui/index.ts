@@ -9,3 +9,4 @@ export { Skeleton, CardSkeleton, ListSkeleton, Spinner } from "./Skeleton";
 export { Sheet, ConfirmSheet } from "./Sheet";
 export { SegmentedControl, ChipRow } from "./SegmentedControl";
 export { ToastProvider, useToast } from "./Toast";
+export { ImageUploader, SingleImageUploader } from "./ImageUploader";

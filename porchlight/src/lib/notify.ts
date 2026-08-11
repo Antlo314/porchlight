@@ -10,6 +10,8 @@ export type NotificationType =
   | "OFFER_DECLINED"
   | "RSVP"
   | "REVIEW"
+  | "JOB_REQUEST"
+  | "JOB_REPLY"
   | "SYSTEM";
 
 export type NotificationPayload = {
@@ -36,6 +38,30 @@ export async function notify(opts: {
       type: opts.type,
       payload: JSON.stringify(opts.payload),
     },
+  });
+}
+
+/**
+ * Fan-out variant: one INSERT for the whole recipient list instead of one per
+ * person. Used where a single event notifies many members at once (a new job
+ * request reaching every matching business), which would otherwise put dozens
+ * of round trips on the critical path of a form submit.
+ */
+export async function notifyMany(opts: {
+  userIds: string[];
+  /** Suppressed from the recipient list, same rule as notify(). */
+  actorId?: string;
+  type: NotificationType;
+  payload: NotificationPayload;
+}) {
+  const recipients = Array.from(new Set(opts.userIds)).filter(
+    (id) => id !== opts.actorId
+  );
+  if (recipients.length === 0) return;
+
+  const payload = JSON.stringify(opts.payload);
+  await db.notification.createMany({
+    data: recipients.map((userId) => ({ userId, type: opts.type, payload })),
   });
 }
 

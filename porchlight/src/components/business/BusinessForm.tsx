@@ -9,6 +9,7 @@ import {
   FormError,
   Input,
   Select,
+  SingleImageUploader,
   Textarea,
   useToast,
 } from "@/components/ui";
@@ -26,6 +27,11 @@ export type BusinessFormValues = {
   description: string;
   phone: string;
   website: string;
+  /**
+   * Business.logoUrl. Optional so a caller that doesn't project the column yet
+   * still type-checks; "" means "no logo, fall back to the category tile".
+   */
+  logoUrl?: string;
 };
 
 const CATEGORIES = Object.entries(BUSINESS_CATEGORY_META) as [
@@ -59,6 +65,7 @@ export function BusinessForm({
   const [description, setDescription] = useState(initial?.description ?? "");
   const [phone, setPhone] = useState(initial?.phone ?? "");
   const [website, setWebsite] = useState(initial?.website ?? "");
+  const [logoUrl, setLogoUrl] = useState(initial?.logoUrl ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
@@ -75,6 +82,7 @@ export function BusinessForm({
         description,
         phone,
         website,
+        logoUrl,
       });
       if (result.ok) {
         toast(successMessage);
@@ -98,6 +106,13 @@ export function BusinessForm({
           autoComplete="organization"
         />
       </Field>
+
+      <SingleImageUploader
+        value={logoUrl || null}
+        onChange={(url) => setLogoUrl(url ?? "")}
+        label="Logo"
+        hint="Optional — a sign, a truck door, a storefront. Without one we show your category icon."
+      />
 
       <Field label="Category" required>
         <Select

@@ -36,7 +36,7 @@ export async function createBusiness(input: unknown): Promise<ActionResult> {
     };
   }
 
-  const { name, category, description, phone, website } = parsed.data;
+  const { name, category, description, phone, website, logoUrl } = parsed.data;
 
   await db.$transaction(async (tx) => {
     const business = await tx.business.create({
@@ -48,6 +48,7 @@ export async function createBusiness(input: unknown): Promise<ActionResult> {
         description,
         phone: phone ? phone : null,
         website: website ? website : null,
+        logoUrl: logoUrl ? logoUrl : null,
       },
       select: { id: true },
     });

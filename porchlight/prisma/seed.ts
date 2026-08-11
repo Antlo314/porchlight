@@ -180,6 +180,47 @@ async function main() {
     },
   });
 
+  console.log("Seeding job requests…");
+  const fenceJob = await db.jobRequest.upsert({
+    where: { id: "seed-job-fence" },
+    update: {},
+    create: {
+      id: "seed-job-fence",
+      requesterId: maya.id,
+      neighborhoodId: o4w.id,
+      title: "Fence panel blew down in the storm",
+      description:
+        "Back fence lost one panel and the post is leaning. Need it replaced before the dog figures it out. Happy to pay for materials up front.",
+      category: "HOME_SERVICES",
+      budgetInfo: "under $300",
+    },
+  });
+  await db.jobRequest.upsert({
+    where: { id: "seed-job-gutters" },
+    update: {},
+    create: {
+      id: "seed-job-gutters",
+      requesterId: demo.id,
+      neighborhoodId: o4w.id,
+      title: "Gutter cleaning before the fall leaves",
+      description:
+        "Single story ranch, maybe 120 linear feet. Looking for someone who does this regularly so I can just book it every year.",
+      category: "HOME_SERVICES",
+      budgetInfo: "quote me",
+    },
+  });
+  await db.jobReply.upsert({
+    where: { jobId_businessId: { jobId: fenceJob.id, businessId: biz.id } },
+    update: {},
+    create: {
+      jobId: fenceJob.id,
+      businessId: biz.id,
+      message:
+        "I can swing by tomorrow to look. I keep pressure-treated panels on the truck, so if it's a standard 6ft I can likely fix it same visit.",
+      quoteInfo: "$180 + materials",
+    },
+  });
+
   console.log("Seeding a conversation…");
   const convo = await db.conversation.create({
     data: {
