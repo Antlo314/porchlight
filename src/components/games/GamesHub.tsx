@@ -149,7 +149,21 @@ export function GamesHub({
                 key={row.userId}
                 className="flex items-center justify-between rounded-xl border border-line bg-card px-3 py-2 text-sm"
               >
-                <span>
+                <span className="flex items-center gap-2">
+                  {row.place <= 3 && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={
+                        row.place === 1
+                          ? "/games/quilt/medal.png"
+                          : row.place === 2
+                            ? "/games/quilt/medal-silver.png"
+                            : "/games/quilt/medal-copper.png"
+                      }
+                      alt=""
+                      className="h-6 w-6 object-contain"
+                    />
+                  )}
                   <span className="font-bold tabular-nums">{row.place}.</span>{" "}
                   {row.name}
                   <span className="text-ink-soft"> · {row.neighborhood}</span>

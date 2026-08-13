@@ -101,6 +101,94 @@ body {
   display: none;
 }
 
+@keyframes quilt-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+}
+
+@keyframes quilt-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(230 154 65 / 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgb(230 154 65 / 0);
+  }
+}
+
+@keyframes quilt-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+}
+
+@keyframes quilt-pop {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+}
+
+@keyframes quilt-drop {
+  0% {
+    transform: translateY(-18px);
+    opacity: 0.2;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes quilt-flash {
+  0% {
+    box-shadow: inset 0 0 0 2px var(--color-porch-400);
+  }
+  100% {
+    box-shadow: inset 0 0 0 0 transparent;
+  }
+}
+
+.quilt-breathe {
+  animation: quilt-breathe 2.6s ease-in-out infinite;
+}
+
+.quilt-selected {
+  animation: quilt-glow 1s ease-in-out infinite;
+}
+
+.quilt-shake {
+  animation: quilt-shake 0.18s ease-in-out;
+}
+
+.quilt-pop {
+  animation: quilt-pop 0.18s ease-in forwards;
+}
+
+.quilt-drop {
+  animation: quilt-drop 0.22s ease-out;
+}
+
+.quilt-flash {
+  animation: quilt-flash 0.35s ease-out;
+}
+
 /* Respect users who ask the OS to reduce motion. */
 @media (prefers-reduced-motion: reduce) {
   *,

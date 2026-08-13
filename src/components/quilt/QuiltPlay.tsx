@@ -14,16 +14,9 @@ import {
 } from "@/lib/quilt/engine";
 import { getNight } from "@/lib/quilt/nights";
 import { playSfx, startLoop, stopLoop } from "@/lib/quilt/audio";
-import { COLOR_HEX, type Cell, type QuiltMove, type QuiltState } from "@/lib/quilt/types";
-
-const SHAPE_SRC: Record<string, string> = {
-  lantern: "/games/quilt/lantern.png",
-  leaf: "/games/quilt/leaf.png",
-  peach: "/games/quilt/peach.png",
-  key: "/games/quilt/key.png",
-  mug: "/games/quilt/mug.png",
-  star: "/games/quilt/star.png",
-};
+import { EmberSprite } from "@/components/quilt/EmberSprite";
+import { TileView } from "@/components/quilt/Tile";
+import { type Cell, type QuiltMove, type QuiltState } from "@/lib/quilt/types";
 
 export function QuiltPlay({
   nightId,
@@ -46,6 +39,9 @@ export function QuiltPlay({
   const [ended, setEnded] = useState<"won" | "lost" | null>(null);
   const [pending, startTransition] = useTransition();
   const [lesson, setLesson] = useState(nightId === "night-0" ? 0 : -1);
+  const [emberMood, setEmberMood] = useState<"idle" | "talk" | "cheer">("idle");
+  const [freshIds, setFreshIds] = useState<Set<number>>(new Set());
+  const [flash, setFlash] = useState(false);
 
   useEffect(() => {
     startLoop();
@@ -54,8 +50,10 @@ export function QuiltPlay({
 
   const over = ended ?? (goalsMet(state) ? "won" : state.movesLeft <= 0 ? "lost" : null);
 
-  function speak(text: string) {
+  function speak(text: string, mood: "talk" | "cheer" = "talk") {
     setEmber(text);
+    setEmberMood(mood);
+    window.setTimeout(() => setEmberMood("idle"), 900);
   }
 
   function tap(cell: Cell) {
@@ -91,11 +89,26 @@ export function QuiltPlay({
     playSfx("swap", 0.45);
     const nextMoves = [...moves, { a: selected, b: cell }];
     setMoves(nextMoves);
+    const prev = new Set(
+      state.board.flat().map((t) => t?.id).filter((id): id is number => id != null)
+    );
+    const born = new Set<number>();
+    for (const row of res.state.board) {
+      for (const t of row) {
+        if (t && !prev.has(t.id)) born.add(t.id);
+      }
+    }
+    setFreshIds(born);
+    setFlash(res.state.combo > 1);
+    window.setTimeout(() => {
+      setFreshIds(new Set());
+      setFlash(false);
+    }, 280);
     setState(res.state);
     const won = goalsMet(res.state);
     if (res.state.progress.trueMatches > state.progress.trueMatches) {
       playSfx("true", 0.65);
-      speak("True stitch! Color and shape together. That's the quilt.");
+      speak("True stitch! Color and shape together. That's the quilt.", "cheer");
     } else if (res.state.combo > 1) {
       playSfx("cascade", 0.55);
       speak(`Cascade — ${res.state.combo} deep. Keep going.`);
@@ -107,7 +120,10 @@ export function QuiltPlay({
       const kind = won ? "won" : "lost";
       setEnded(kind);
       playSfx(kind === "won" ? "win" : "lose", 0.7);
-      speak(won ? "The stoop is lit. That's a night for the rail." : "Moves are gone. Replay and try another stitch.");
+      speak(
+        won ? "The stoop is lit. That's a night for the rail." : "Moves are gone. Replay and try another stitch.",
+        won ? "cheer" : "talk"
+      );
       startTransition(async () => {
         await submitQuiltAction({
           token,
@@ -155,36 +171,25 @@ export function QuiltPlay({
       </div>
 
       <div
-        className="mx-auto grid w-full max-w-[390px] gap-1 rounded-2xl bg-[#2b2420] p-2"
+        className={`mx-auto grid w-full max-w-[390px] gap-1 rounded-2xl bg-[#2b2420] p-2 ${
+          flash ? "quilt-flash" : ""
+        }`}
         style={{ gridTemplateColumns: "repeat(7, minmax(0, 1fr))" }}
       >
         {state.board.map((row, r) =>
           row.map((tile, c) => {
             const key = `${r},${c}`;
-            const on = selected?.r === r && selected?.c === c;
-            const shaking = shake === key;
-            const hex = tile ? COLOR_HEX[tile.color] : "#3a322c";
             return (
-              <button
+              <TileView
                 key={tile?.id ?? key}
-                type="button"
-                aria-label={tile ? `${tile.color} ${tile.shape}` : "empty"}
-                onClick={() => tap({ r, c })}
-                className={`aspect-square rounded-lg border-2 ${
-                  on ? "border-cream scale-105" : "border-transparent"
-                } ${shaking ? "animate-pulse" : ""}`}
-                style={{ background: hex }}
-              >
-                {tile && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={SHAPE_SRC[tile.shape]}
-                    alt=""
-                    className="h-full w-full object-contain p-0.5"
-                    draggable={false}
-                  />
-                )}
-              </button>
+                tile={tile}
+                selected={selected?.r === r && selected?.c === c}
+                shaking={shake === key}
+                dropping={Boolean(tile && freshIds.has(tile.id))}
+                popping={false}
+                delay={(r * 7 + c) * 40}
+                onTap={() => tap({ r, c })}
+              />
             );
           })
         )}
@@ -194,11 +199,7 @@ export function QuiltPlay({
 
       <div className="mt-3 flex gap-3 rounded-card border border-line bg-card p-3">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/games/quilt/ember.png"
-          alt=""
-          className="h-16 w-16 shrink-0 object-contain"
-        />
+        <EmberSprite mood={emberMood} />
         <p className="text-sm leading-snug text-ink">{ember}</p>
       </div>
 
@@ -207,7 +208,7 @@ export function QuiltPlay({
           <div className="w-full max-w-md rounded-card border border-porch-200 bg-cream p-4">
             <div className="flex gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/games/quilt/ember-talk.png" alt="" className="h-16 w-16 object-contain" />
+              <EmberSprite mood="talk" />
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-porch-700">
                   Ember · walkthrough {lesson + 1}/4
