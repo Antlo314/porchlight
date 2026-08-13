@@ -1,0 +1,256 @@
+"use server";
+
+import { currentUser } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { gameCreditUsage, grantGameReward } from "@/lib/games/economy";
+import { dailySeed, getLevel } from "@/lib/games/levels";
+import { parseEvents, validateRun } from "@/lib/games/scoring";
+import { issueTicket, mintNonce, readTicket, TICKET_TTL_MS } from "@/lib/games/session";
+import { GAME_ID, isLevelId, RUN_STATUS } from "@/lib/games/types";
+
+export type StartRunResult =
+  | {
+      ok: true;
+      runId: string;
+      nonce: string;
+      seed: string;
+      token: string;
+      demo: boolean;
+      remainingToday: number;
+    }
+  | { ok: false; error: string };
+
+export async function startRunAction(levelId: string): Promise<StartRunResult> {
+  if (!isLevelId(levelId)) {
+    return { ok: false, error: "That course isn't on the board." };
+  }
+
+  const user = await currentUser().catch(() => null);
+  const seed =
+    levelId === "daily" ? dailySeed(user?.neighborhoodId ?? null) : levelId;
+  const nonce = mintNonce();
+
+  try {
+    if (user) {
+      await db.gameRun.updateMany({
+        where: { userId: user.id, status: RUN_STATUS.STARTED },
+        data: { status: RUN_STATUS.REJECTED, rejectReason: "SUPERSEDED" },
+      });
+    }
+
+    const run = await db.gameRun.create({
+      data: {
+        userId: user?.id ?? null,
+        game: GAME_ID,
+        nonce,
+        levelId,
+        seed,
+        status: user ? RUN_STATUS.STARTED : RUN_STATUS.DEMO,
+      },
+    });
+
+    const token = issueTicket({
+      runId: run.id,
+      userId: user?.id ?? null,
+      nonce,
+      levelId,
+      seed,
+      iat: Date.now(),
+    });
+
+    const usage = user
+      ? await gameCreditUsage(user.id)
+      : { remainingToday: 0 };
+
+    return {
+      ok: true,
+      runId: run.id,
+      nonce,
+      seed,
+      token,
+      demo: !user,
+      remainingToday: usage.remainingToday,
+    };
+  } catch {
+    if (user) {
+      return { ok: false, error: "The porch ledger is offline right now." };
+    }
+    const token = issueTicket({
+      runId: `demo-${nonce}`,
+      userId: null,
+      nonce,
+      levelId,
+      seed,
+      iat: Date.now(),
+    });
+    return {
+      ok: true,
+      runId: `demo-${nonce}`,
+      nonce,
+      seed,
+      token,
+      demo: true,
+      remainingToday: 0,
+    };
+  }
+}
+
+export type SubmitRunResult =
+  | {
+      ok: true;
+      score: number;
+      coins: number;
+      porchesLit: number;
+      deaths: number;
+      finished: boolean;
+      credits: number;
+      remainingToday: number;
+      demo: boolean;
+      reason: string;
+    }
+  | { ok: false; error: string; code?: string };
+
+export async function submitRunAction(input: {
+  token: string;
+  events: unknown;
+  durationMs: number;
+  claimedScore?: number;
+}): Promise<SubmitRunResult> {
+  const ticket = readTicket(input.token);
+  if (!ticket) {
+    return { ok: false, error: "That run ticket isn't valid.", code: "BAD_TICKET" };
+  }
+  if (Date.now() - ticket.iat > TICKET_TTL_MS) {
+    return { ok: false, error: "That run sat too long. Start another.", code: "EXPIRED" };
+  }
+  if (!isLevelId(ticket.levelId)) {
+    return { ok: false, error: "That course isn't on the board.", code: "BAD_LEVEL" };
+  }
+
+  const events = parseEvents(input.events);
+  if (!events) {
+    return { ok: false, error: "The run log didn't parse.", code: "BAD_EVENTS" };
+  }
+
+  const run = await db.gameRun
+    .findUnique({ where: { id: ticket.runId } })
+    .catch(() => null);
+
+  if (!run && ticket.userId === null) {
+    const level = getLevel(ticket.levelId, ticket.seed);
+    const checked = validateRun({
+      level,
+      events,
+      durationMs: input.durationMs,
+      claimedScore: input.claimedScore,
+    });
+    if (!checked.ok) {
+      return { ok: false, error: checked.error, code: checked.code };
+    }
+    return {
+      ok: true,
+      score: checked.score,
+      coins: checked.coins,
+      porchesLit: checked.porchesLit,
+      deaths: checked.deaths,
+      finished: checked.finished,
+      credits: 0,
+      remainingToday: 0,
+      demo: true,
+      reason: "DEMO",
+    };
+  }
+
+  if (!run || run.nonce !== ticket.nonce) {
+    return { ok: false, error: "We couldn't find that run.", code: "MISSING" };
+  }
+  if (run.submittedAt || (run.status !== RUN_STATUS.STARTED && run.status !== RUN_STATUS.DEMO)) {
+    return { ok: false, error: "That run was already turned in.", code: "REPLAY" };
+  }
+  if (run.levelId !== ticket.levelId || run.seed !== ticket.seed) {
+    return { ok: false, error: "The ticket doesn't match the run.", code: "MISMATCH" };
+  }
+
+  const user = await currentUser();
+  if (run.userId && (!user || user.id !== run.userId)) {
+    return { ok: false, error: "That run belongs to someone else.", code: "AUTH" };
+  }
+  if (ticket.userId && (!user || user.id !== ticket.userId)) {
+    return { ok: false, error: "Sign back in to keep these credits.", code: "AUTH" };
+  }
+
+  const level = getLevel(ticket.levelId, ticket.seed);
+  const checked = validateRun({
+    level,
+    events,
+    durationMs: input.durationMs,
+    claimedScore: input.claimedScore,
+  });
+
+  if (!checked.ok) {
+    await db.gameRun.update({
+      where: { id: run.id },
+      data: {
+        submittedAt: new Date(),
+        durationMs: Math.floor(input.durationMs),
+        status: RUN_STATUS.REJECTED,
+        rejectReason: checked.code,
+        clientMeta: JSON.stringify({ n: events.length }),
+      },
+    });
+    return { ok: false, error: checked.error, code: checked.code };
+  }
+
+  const demo = !run.userId || !user;
+  await db.gameRun.update({
+    where: { id: run.id },
+    data: {
+      submittedAt: new Date(),
+      durationMs: Math.floor(input.durationMs),
+      score: checked.score,
+      porchesLit: checked.porchesLit,
+      coins: checked.coins,
+      deaths: checked.deaths,
+      finished: checked.finished,
+      status: demo ? RUN_STATUS.DEMO : RUN_STATUS.STARTED,
+      clientMeta: JSON.stringify({ jumps: checked.jumps }),
+    },
+  });
+
+  if (demo) {
+    return {
+      ok: true,
+      score: checked.score,
+      coins: checked.coins,
+      porchesLit: checked.porchesLit,
+      deaths: checked.deaths,
+      finished: checked.finished,
+      credits: 0,
+      remainingToday: 0,
+      demo: true,
+      reason: "DEMO",
+    };
+  }
+
+  const grant = await grantGameReward({
+    userId: user.id,
+    runId: run.id,
+    levelId: ticket.levelId,
+    score: checked.score,
+    porchesLit: checked.porchesLit,
+    finished: checked.finished,
+  });
+
+  return {
+    ok: true,
+    score: checked.score,
+    coins: checked.coins,
+    porchesLit: checked.porchesLit,
+    deaths: checked.deaths,
+    finished: checked.finished,
+    credits: grant.credits,
+    remainingToday: grant.remainingToday,
+    demo: false,
+    reason: grant.reason,
+  };
+}

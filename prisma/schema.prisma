@@ -65,6 +65,7 @@ model User {
   boostEvents      BoostEvent[]
   jobRequests      JobRequest[]
   wants            Want[]
+  gameRuns         GameRun[]
 }
 
 model Neighborhood {
@@ -258,7 +259,7 @@ model TradeCreditEntry {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   delta     Int      // positive = earned, negative = spent
-  reason    String   // SIGNUP_BONUS | TRADE_EARNED | TRADE_SPENT | COMMUNITY_REWARD | INVITE_BONUS | ADJUSTMENT
+  reason    String   // SIGNUP_BONUS | TRADE_EARNED | TRADE_SPENT | COMMUNITY_REWARD | INVITE_BONUS | GAME_REWARD | ADJUSTMENT
   offerId   String?
   offer     BarterOffer? @relation(fields: [offerId], references: [id])
   createdAt DateTime @default(now())
@@ -301,6 +302,38 @@ model Want {
   updatedAt      DateTime @updatedAt
 
   @@index([neighborhoodId, status, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Games — Light the Block and future porch games
+// ─────────────────────────────────────────────────────────────
+
+// One row per attempt. Credits are NEVER taken from the client: the server
+// recomputes the score from the event log, then grantGameReward() decides
+// the drip. Guest runs have no userId and stay DEMO.
+model GameRun {
+  id             String    @id @default(cuid())
+  userId         String?
+  user           User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game           String    // LIGHT_THE_BLOCK
+  nonce          String    @unique
+  levelId        String
+  seed           String
+  startedAt      DateTime  @default(now())
+  submittedAt    DateTime?
+  durationMs     Int?
+  score          Int?
+  porchesLit     Int?
+  coins          Int?
+  deaths         Int?
+  finished       Boolean   @default(false)
+  creditsAwarded Int       @default(0)
+  status         String    // STARTED | AWARDED | REJECTED | DEMO
+  rejectReason   String?
+  clientMeta     String?   // JSON, diagnostics only — never trusted for payout
+
+  @@index([userId, startedAt])
+  @@index([status, startedAt])
 }
 
 // ─────────────────────────────────────────────────────────────

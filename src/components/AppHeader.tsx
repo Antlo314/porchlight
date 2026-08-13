@@ -17,6 +17,13 @@ export default function AppHeader({
         </Link>
         <div className="flex items-center gap-1">
           <Link
+            href="/games"
+            aria-label="Play Light the Block"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-xl active:bg-line/60"
+          >
+            🏮
+          </Link>
+          <Link
             href="/neighborhood"
             aria-label="Explore neighborhoods"
             className="flex h-10 w-10 items-center justify-center rounded-full text-xl active:bg-line/60"

@@ -232,14 +232,14 @@ export const REPORT_REASON_LABELS: Record<
 // ─────────────────────────────────────────────────────────────
 
 export const signupSchema = z.object({
-  email: z.string().email(),
+  email: z.string().trim().email().transform((v) => v.toLowerCase()),
   password: z.string().min(8, "Password must be at least 8 characters"),
-  name: z.string().min(2).max(60),
+  name: z.string().trim().min(2).max(60),
   neighborhoodId: z.string().min(1, "Pick your neighborhood"),
 });
 
 export const loginSchema = z.object({
-  email: z.string().email(),
+  email: z.string().trim().email().transform((v) => v.toLowerCase()),
   password: z.string().min(1),
 });
 
@@ -413,9 +413,9 @@ export const inviteCodeSchema = z
 
 /** Signup arriving through an invite link: neighborhood comes from the code. */
 export const invitedSignupSchema = z.object({
-  email: z.string().email(),
+  email: z.string().trim().email().transform((v) => v.toLowerCase()),
   password: z.string().min(8, "Password must be at least 8 characters"),
-  name: z.string().min(2).max(60),
+  name: z.string().trim().min(2).max(60),
   inviteCode: inviteCodeSchema,
 });
 

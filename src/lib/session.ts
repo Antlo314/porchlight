@@ -12,8 +12,12 @@ export type SessionPayload = {
   neighborhoodId: string;
 };
 
+export function authSecretConfigured() {
+  return Boolean(process.env.AUTH_SECRET?.trim());
+}
+
 function secret() {
-  const s = process.env.AUTH_SECRET;
+  const s = process.env.AUTH_SECRET?.trim();
   if (!s) throw new Error("AUTH_SECRET is not set");
   return new TextEncoder().encode(s);
 }

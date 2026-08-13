@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySessionToken, SESSION_COOKIE } from "@/lib/session";
 
-const PUBLIC_PATHS = ["/", "/login", "/signup", "/api/auth/login", "/api/auth/signup", "/api/neighborhoods"];
+const PUBLIC_PATHS = [
+  "/",
+  "/login",
+  "/signup",
+  "/api/auth/login",
+  "/api/auth/signup",
+  "/api/neighborhoods",
+  "/api/health",
+];
 
 /**
  * Invite landing pages are public: /join/<code> is the first screen an invited
@@ -12,6 +20,10 @@ const PUBLIC_PATHS = ["/", "/login", "/signup", "/api/auth/login", "/api/auth/si
  */
 function isPublicInvitePath(pathname: string) {
   return pathname === "/join" || pathname.startsWith("/join/");
+}
+
+function isPublicGamesPath(pathname: string) {
+  return pathname === "/games" || pathname.startsWith("/games/");
 }
 
 export async function middleware(req: NextRequest) {
@@ -26,6 +38,7 @@ export async function middleware(req: NextRequest) {
   if (
     PUBLIC_PATHS.includes(pathname) ||
     isPublicInvitePath(pathname) ||
+    isPublicGamesPath(pathname) ||
     pathname.startsWith("/_next") ||
     isStaticAsset
   ) {

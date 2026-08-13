@@ -9,9 +9,23 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   }
-  const { email, password } = parsed.data;
+  const email = parsed.data.email.toLowerCase();
+  const { password } = parsed.data;
 
-  const user = await db.user.findUnique({ where: { email } });
+  let user;
+  try {
+    user = await db.user.findUnique({ where: { email } });
+  } catch {
+    return NextResponse.json(
+      {
+        error:
+          "Couldn't reach the porch ledger. The database isn't connected — you can still play Light the Block as a guest.",
+        offline: true,
+      },
+      { status: 503 }
+    );
+  }
+
   const valid = user && (await bcrypt.compare(password, user.passwordHash));
   if (!valid) {
     return NextResponse.json(

@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { Button, Field, FormError, Input, Select } from "@/components/ui";
+import { useCallback, useEffect, useState } from "react";
+import { Button, ButtonLink, Field, FormError, Input, Select } from "@/components/ui";
 
 // Lives under components/invite because the invite flow is what made signup
 // need a server component in front of it: the code has to be resolved on the
@@ -33,53 +33,85 @@ export function SignupForm({
 }) {
   const router = useRouter();
   const [neighborhoods, setNeighborhoods] = useState<Neighborhood[]>([]);
+  const [hoodStatus, setHoodStatus] = useState<"loading" | "ready" | "empty" | "offline">(
+    invite ? "ready" : "loading"
+  );
   const [error, setError] = useState<string | null>(null);
+  const [offline, setOffline] = useState(false);
   const [busy, setBusy] = useState(false);
   // Cleared if the server rejects the code at submit time — for instance the
   // inviter left between page load and submit — which brings the picker back
   // instead of trapping someone on a form they can't complete.
   const [activeInvite, setActiveInvite] = useState<SignupInvite | null>(invite);
 
-  useEffect(() => {
-    // With a valid code the neighborhood is already decided, so there's no
-    // picker to populate and no reason to hit the endpoint.
+  const loadNeighborhoods = useCallback(async () => {
     if (activeInvite) return;
-    let cancelled = false;
-    fetch("/api/neighborhoods")
-      .then((r) => r.json())
-      .then((data: Neighborhood[]) => {
-        if (!cancelled) setNeighborhoods(data);
-      })
-      .catch(() => {
-        if (!cancelled) setError("Couldn't load neighborhoods");
-      });
-    return () => {
-      cancelled = true;
-    };
+    setHoodStatus("loading");
+    setError(null);
+    try {
+      const res = await fetch("/api/neighborhoods");
+      const data: unknown = await res.json().catch(() => null);
+      if (!res.ok || !Array.isArray(data)) {
+        setNeighborhoods([]);
+        setHoodStatus("offline");
+        setError(
+          (data &&
+          typeof data === "object" &&
+          "error" in data &&
+          typeof data.error === "string"
+            ? data.error
+            : "Couldn't load neighborhoods. The database isn't connected.")
+        );
+        return;
+      }
+      setNeighborhoods(data);
+      setHoodStatus(data.length === 0 ? "empty" : "ready");
+    } catch {
+      setNeighborhoods([]);
+      setHoodStatus("offline");
+      setError("Couldn't load neighborhoods. Check your connection and try again.");
+    }
   }, [activeInvite]);
+
+  useEffect(() => {
+    void loadNeighborhoods();
+  }, [loadNeighborhoods]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!activeInvite && hoodStatus !== "ready") return;
     setBusy(true);
     setError(null);
+    setOffline(false);
 
     const form = new FormData(e.currentTarget);
     const payload: Record<string, string> = {
-      name: String(form.get("name") ?? ""),
-      email: String(form.get("email") ?? ""),
+      name: String(form.get("name") ?? "").trim(),
+      email: String(form.get("email") ?? "").trim().toLowerCase(),
       password: String(form.get("password") ?? ""),
     };
     if (activeInvite) payload.inviteCode = activeInvite.code;
     else payload.neighborhoodId = String(form.get("neighborhoodId") ?? "");
 
-    const res = await fetch("/api/auth/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    let res: Response;
+    try {
+      res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    } catch {
+      setOffline(true);
+      setError("Couldn't reach Porchlight. Check your connection.");
+      setBusy(false);
+      return;
+    }
 
     if (res.ok) {
-      router.push("/feed");
+      const payload = (await res.json().catch(() => null)) as {
+        needsLogin?: boolean;
+      } | null;
+      router.push(payload?.needsLogin ? "/login?next=/feed" : "/feed");
       router.refresh();
       return;
     }
@@ -87,13 +119,16 @@ export function SignupForm({
     const data = (await res.json().catch(() => null)) as {
       error?: string;
       inviteInvalid?: boolean;
+      offline?: boolean;
     } | null;
     if (data?.inviteInvalid) setActiveInvite(null);
-    setError(data?.error ?? "Something went wrong");
+    if (data?.offline) setOffline(true);
+    setError(data?.error ?? "Something went wrong creating the account.");
     setBusy(false);
   }
 
   const startingCredits = signupBonus + (activeInvite ? inviteBonus : 0);
+  const canSubmit = Boolean(activeInvite) || hoodStatus === "ready";
 
   return (
     <main className="mx-auto max-w-md px-6 py-12">
@@ -171,9 +206,20 @@ export function SignupForm({
 
         {!activeInvite && (
           <Field label="Neighborhood" required>
-            <Select name="neighborhoodId" required defaultValue="">
+            <Select
+              name="neighborhoodId"
+              required={hoodStatus === "ready"}
+              defaultValue=""
+              disabled={hoodStatus !== "ready"}
+            >
               <option value="" disabled>
-                Pick your neighborhood
+                {hoodStatus === "loading"
+                  ? "Loading neighborhoods…"
+                  : hoodStatus === "offline"
+                    ? "Neighborhoods unavailable"
+                    : hoodStatus === "empty"
+                      ? "No neighborhoods yet"
+                      : "Pick your neighborhood"}
               </option>
               {neighborhoods.map((n) => (
                 <option key={n.id} value={n.id}>
@@ -181,20 +227,58 @@ export function SignupForm({
                 </option>
               ))}
             </Select>
+            {hoodStatus === "offline" && (
+              <button
+                type="button"
+                onClick={() => void loadNeighborhoods()}
+                className="mt-2 text-sm font-semibold text-porch-700"
+              >
+                Try loading neighborhoods again
+              </button>
+            )}
+            {hoodStatus === "empty" && (
+              <p className="mt-2 text-sm text-ink-soft">
+                The block list hasn&apos;t been seeded yet. Run{" "}
+                <code className="rounded bg-line px-1">npm run db:seed</code>{" "}
+                against your Neon database.
+              </p>
+            )}
           </Field>
         )}
 
         <FormError>{error}</FormError>
 
-        <Button type="submit" size="lg" disabled={busy} aria-busy={busy}>
+        <Button
+          type="submit"
+          size="lg"
+          disabled={busy || !canSubmit}
+          aria-busy={busy}
+        >
           {busy ? "Creating account…" : "Create account"}
         </Button>
       </form>
+
+      {(offline || hoodStatus === "offline") && (
+        <div className="mt-5 rounded-card border border-porch-200 bg-porch-50 p-4">
+          <p className="text-[15px] font-semibold">Play while the ledger is offline</p>
+          <p className="mt-1 text-sm text-ink-soft">
+            Light the Block works as a guest. Sign up later, once the database
+            is connected, to keep Porch Credits.
+          </p>
+          <ButtonLink href="/games" className="mt-3" size="md">
+            Play Light the Block
+          </ButtonLink>
+        </div>
+      )}
 
       <p className="mt-6 text-center text-sm text-ink-soft">
         Already a member?{" "}
         <Link href="/login" className="font-semibold text-porch-700">
           Log in
+        </Link>
+        {" · "}
+        <Link href="/games" className="font-semibold text-porch-700">
+          Play as a guest
         </Link>
       </p>
     </main>

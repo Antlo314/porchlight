@@ -16,7 +16,7 @@ export default async function SignupPage({
 }) {
   const params = await searchParams;
   const raw = Array.isArray(params.invite) ? params.invite[0] : params.invite;
-  const invite = await resolveInvite(raw);
+  const invite = await resolveInvite(raw).catch(() => null);
 
   return (
     <SignupForm

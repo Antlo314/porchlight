@@ -202,6 +202,109 @@ async function main() {
     console.log("  skip (no verified business seeded)");
   }
 
+  // ── Light the Block credit drip ─────────────────────────────
+  console.log("\nGame credits");
+  const { grantGameReward, GAME_REWARD, DAILY_CAP } = await import("../src/lib/games/economy");
+  const { scoreFromCounts } = await import("../src/lib/games/scoring");
+  const { RUN_STATUS } = await import("../src/lib/games/types");
+
+  const player = await db.user.create({
+    data: {
+      email: `smoke-gamer-${Date.now()}@porchlight.test`,
+      name: "[smoke] Gamer",
+      passwordHash: "x",
+      neighborhoodId: owner.neighborhoodId,
+    },
+  });
+  const startBal = await balance(player.id);
+
+  async function fakeRun(opts: {
+    levelId: string;
+    score: number;
+    porches: number;
+    finished: boolean;
+  }) {
+    return db.gameRun.create({
+      data: {
+        userId: player.id,
+        game: "LIGHT_THE_BLOCK",
+        nonce: `smoke-${Math.random().toString(36).slice(2)}`,
+        levelId: opts.levelId,
+        seed: opts.levelId,
+        status: RUN_STATUS.STARTED,
+        score: opts.score,
+        porchesLit: opts.porches,
+        coins: 0,
+        deaths: 0,
+        finished: opts.finished,
+      },
+    });
+  }
+
+  const first = await fakeRun({
+    levelId: "kirkwood",
+    score: scoreFromCounts({ coins: 2, porchesLit: 2, finished: true }),
+    porches: 2,
+    finished: true,
+  });
+  const firstPay = await grantGameReward({
+    userId: player.id,
+    runId: first.id,
+    levelId: "kirkwood",
+    score: first.score ?? 0,
+    porchesLit: 2,
+    finished: true,
+  });
+  check(
+    "first kirkwood clear pays run + onboarding bonus",
+    firstPay.credits >= 4,
+    `paid ${firstPay.credits}`
+  );
+
+  const grind = [];
+  for (let i = 0; i < 6; i++) {
+    const run = await fakeRun({
+      levelId: "east-atlanta",
+      score: 2000,
+      porches: 9,
+      finished: true,
+    });
+    grind.push(
+      grantGameReward({
+        userId: player.id,
+        runId: run.id,
+        levelId: "east-atlanta",
+        score: 2000,
+        porchesLit: 9,
+        finished: true,
+      })
+    );
+  }
+  const paid = await Promise.all(grind);
+  const gameSum = paid.reduce((n, p) => n + p.credits, 0);
+  const after = await db.tradeCreditEntry.aggregate({
+    where: { userId: player.id, reason: GAME_REWARD },
+    _sum: { delta: true },
+  });
+  check(
+    "daily cap holds under a burst",
+    (after._sum.delta ?? 0) <= DAILY_CAP,
+    `ledger ${after._sum.delta} first ${firstPay.credits} burst ${gameSum}`
+  );
+  check(
+    "at least one burst run is capped",
+    paid.some((p) => p.reason === "DAILY_CAP" || p.credits === 0)
+  );
+  check(
+    "balance still equals SUM(delta)",
+    (await balance(player.id)) === startBal + (after._sum.delta ?? 0)
+  );
+
+  await db.tradeCreditEntry.deleteMany({ where: { userId: player.id, reason: GAME_REWARD } });
+  await db.gameRun.deleteMany({ where: { userId: player.id } });
+  await db.notification.deleteMany({ where: { userId: player.id } });
+  await db.user.delete({ where: { id: player.id } });
+
   // ── Cleanup ─────────────────────────────────────────────────
   await db.tradeCreditEntry.deleteMany({ where: { offerId: offer.id } });
   await db.barterOffer.delete({ where: { id: offer.id } });

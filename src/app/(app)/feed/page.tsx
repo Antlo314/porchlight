@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { POST_TYPE_META, PostType } from "@/lib/validators";
 import { visibleNeighborhoodIds } from "@/lib/visibility";
 import { pluralize } from "@/lib/format";
+import { gameCreditUsage } from "@/lib/games/economy";
 import Link from "next/link";
 
 const PAGE_SIZE = 40;
@@ -25,7 +26,7 @@ export default async function FeedPage({
   // Home neighborhood plus any the member follows.
   const neighborhoodIds = await visibleNeighborhoodIds(user);
 
-  const [posts, upcomingEvents] = await Promise.all([
+  const [posts, upcomingEvents, gameUsage] = await Promise.all([
     db.post.findMany({
       where: {
         neighborhoodId: { in: neighborhoodIds },
@@ -46,6 +47,7 @@ export default async function FeedPage({
         post: { neighborhoodId: { in: neighborhoodIds } },
       },
     }),
+    gameCreditUsage(user.id),
   ]);
 
   return (
@@ -65,6 +67,21 @@ export default async function FeedPage({
           {upcomingEvents > 0
             ? pluralize(upcomingEvents, "event")
             : "Nothing yet"}
+          <span aria-hidden>→</span>
+        </span>
+      </Link>
+
+      <Link
+        href="/games"
+        className="flex min-h-12 items-center justify-between rounded-card border border-porch-200 bg-porch-50 px-4 transition-transform duration-100 active:scale-[0.99] active:bg-porch-100/70"
+      >
+        <span className="text-[15px] font-semibold">
+          <span aria-hidden>🏮</span> Light the Block
+        </span>
+        <span className="flex items-center gap-2 text-sm text-ink-soft">
+          {gameUsage.remainingToday > 0
+            ? `${gameUsage.remainingToday} credits left today`
+            : "Daily drip is full"}
           <span aria-hidden>→</span>
         </span>
       </Link>

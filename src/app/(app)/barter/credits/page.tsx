@@ -81,17 +81,29 @@ export default async function CreditsPage() {
             the same.
           </li>
           <li>
+            <span aria-hidden>🏮</span> Light the Block pays a small daily
+            drip — never more than 5 credits in a day.
+          </li>
+          <li>
             <span aria-hidden>🚫</span> They can&apos;t be bought and they
             can&apos;t be cashed out. Porch Credits are a neighborhood
             currency, not money.
           </li>
         </ul>
-        <Link
-          href="/barter/new"
-          className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-porch-700"
-        >
-          Post something to earn credits →
-        </Link>
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+          <Link
+            href="/barter/new"
+            className="inline-flex min-h-11 items-center text-sm font-semibold text-porch-700"
+          >
+            Post something to earn credits →
+          </Link>
+          <Link
+            href="/games"
+            className="inline-flex min-h-11 items-center text-sm font-semibold text-porch-700"
+          >
+            Play Light the Block →
+          </Link>
+        </div>
       </Card>
 
       <SectionHeading title="History" />
