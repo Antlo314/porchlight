@@ -60,6 +60,7 @@ export function QuiltPlay({
 
   function tap(cell: Cell) {
     if (over) return;
+    startLoop();
     if (!selected) {
       setSelected(cell);
       playSfx("tap", 0.4);
