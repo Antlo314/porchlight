@@ -134,9 +134,24 @@ function LoginForm() {
   );
 }
 
+function AuthFallback() {
+  return (
+    <AuthShell
+      title="Welcome back"
+      subtitle="Your block is right where you left it."
+    >
+      <div className="space-y-4" aria-hidden>
+        <div className="h-12 animate-shimmer rounded-card bg-line/70" />
+        <div className="h-12 animate-shimmer rounded-card bg-line/70" />
+        <div className="h-13 animate-shimmer rounded-card bg-line/70" />
+      </div>
+    </AuthShell>
+  );
+}
+
 export default function LoginPage() {
   return (
-    <Suspense>
+    <Suspense fallback={<AuthFallback />}>
       <LoginForm />
     </Suspense>
   );

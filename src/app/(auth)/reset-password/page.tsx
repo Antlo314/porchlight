@@ -87,9 +87,21 @@ function ResetForm() {
   );
 }
 
+function AuthFallback() {
+  return (
+    <AuthShell title="Choose a new password">
+      <div className="space-y-4" aria-hidden>
+        <div className="h-12 animate-shimmer rounded-card bg-line/70" />
+        <div className="h-12 animate-shimmer rounded-card bg-line/70" />
+        <div className="h-13 animate-shimmer rounded-card bg-line/70" />
+      </div>
+    </AuthShell>
+  );
+}
+
 export default function ResetPasswordPage() {
   return (
-    <Suspense>
+    <Suspense fallback={<AuthFallback />}>
       <ResetForm />
     </Suspense>
   );
