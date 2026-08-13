@@ -629,7 +629,18 @@ export class PlayScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(81)
       .setInteractive({ useHandCursor: true });
-    again.on("pointerup", () => this.bridge.onExit());
+    const leave = this.add
+      .text(w / 2, h / 2 + 148, "Back to courses", {
+        fontFamily: "ui-sans-serif, system-ui, sans-serif",
+        fontSize: "14px",
+        color: "#faeacf",
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(81)
+      .setInteractive({ useHandCursor: true });
+    again.on("pointerup", () => this.bridge.onReplay());
+    leave.on("pointerup", () => this.bridge.onExit());
   }
 
   private currentScore() {

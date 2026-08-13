@@ -15,6 +15,7 @@ export type GameBridge = {
     claimedScore: number;
   }) => Promise<SubmitRunResult>;
   onExit: () => void;
+  onReplay: () => void;
 };
 
 export async function createLightTheBlockGame(

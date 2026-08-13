@@ -15,6 +15,7 @@ export function LightTheBlockCanvas({
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [booting, setBooting] = useState(true);
+  const [replayKey, setReplayKey] = useState(0);
 
   useEffect(() => {
     const el = hostRef.current;
@@ -41,6 +42,11 @@ export function LightTheBlockCanvas({
         remainingToday: started.remainingToday,
         onSubmit: (input) => submitRunAction(input),
         onExit: () => router.push("/games"),
+        onReplay: () => {
+          setError(null);
+          setBooting(true);
+          setReplayKey((n) => n + 1);
+        },
       });
       setBooting(false);
     })().catch((err: unknown) => {
@@ -63,7 +69,7 @@ export function LightTheBlockCanvas({
       document.removeEventListener("touchmove", prevent);
       game?.destroy(true);
     };
-  }, [levelId, router]);
+  }, [levelId, router, replayKey]);
 
   return (
     <div className="fixed inset-0 z-50 touch-none bg-ink">

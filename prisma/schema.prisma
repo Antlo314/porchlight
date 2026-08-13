@@ -66,6 +66,7 @@ model User {
   jobRequests      JobRequest[]
   wants            Want[]
   gameRuns         GameRun[]
+  passwordResets   PasswordResetToken[]
 }
 
 model Neighborhood {
@@ -302,6 +303,21 @@ model Want {
   updatedAt      DateTime @updatedAt
 
   @@index([neighborhoodId, status, createdAt])
+}
+
+// Single-use reset links. Raw token never lands in the database — only sha256.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  ipHash    String?
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([ipHash, createdAt])
 }
 
 // ─────────────────────────────────────────────────────────────

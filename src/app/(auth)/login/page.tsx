@@ -77,6 +77,11 @@ function LoginForm() {
           />
         </Field>
         <FormError>{error}</FormError>
+        <p className="-mt-1 text-right">
+          <Link href="/forgot-password" className="text-sm font-semibold text-porch-700">
+            Forgot password?
+          </Link>
+        </p>
         <Button type="submit" size="lg" disabled={busy} aria-busy={busy}>
           {busy ? "Logging in…" : "Log in"}
         </Button>

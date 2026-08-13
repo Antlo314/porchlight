@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { mailConfigured } from "@/lib/mail";
 import { authSecretConfigured } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +20,7 @@ export async function GET() {
     database,
     neighborhoods,
     authSecret: authSecretConfigured() ? "ok" : "missing",
+    mail: mailConfigured() ? "ok" : "missing",
     games: true,
   });
 }
