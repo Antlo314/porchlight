@@ -42,11 +42,30 @@ export function GamesHub({
         <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">
           How to play
         </p>
-        <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-ink">
-          <li>Tap a tile. Tap a neighbor (up, down, left, right) to swap.</li>
-          <li>Three in a line of the same color *or* the same shape glow.</li>
-          <li>Finish Ember&apos;s card before moves run out.</li>
+        <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-sm text-ink">
+          <li>
+            <span className="font-semibold">Tap one tile</span> so it lights up.
+          </li>
+          <li>
+            <span className="font-semibold">Tap a neighbor</span> — only up,
+            down, left, or right. They swap.
+          </li>
+          <li>
+            <span className="font-semibold">Three in a line</span> of the same
+            color or the same shape glow and fall away.
+          </li>
+          <li>
+            <span className="font-semibold">True stitch</span> = same color and
+            same shape. Those fill Ember&apos;s card fastest.
+          </li>
+          <li>Finish the card before moves run out.</li>
         </ol>
+        <Link
+          href="/games/quilt?night=night-0"
+          className="mt-3 inline-flex min-h-11 items-center font-semibold text-porch-700"
+        >
+          Start Night 0 — Ember walks you through it →
+        </Link>
       </Card>
 
       <div>
@@ -81,10 +100,40 @@ export function GamesHub({
         </p>
       </Link>
 
+      <Card>
+        <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">
+          Weekly payout
+        </p>
+        <p className="mt-1 text-sm text-ink">
+          Atlanta week: Monday through Sunday. Your <strong>best score</strong>{" "}
+          this week is what ranks — play as many times as you want; only the
+          high score sticks.
+        </p>
+        <ul className="mt-3 space-y-1.5 text-sm">
+          <li className="flex items-center justify-between">
+            <span>1st place</span>
+            <span className="font-bold">{WEEKLY_PRIZES[0]} Porch Credits</span>
+          </li>
+          <li className="flex items-center justify-between">
+            <span>2nd place</span>
+            <span className="font-bold">{WEEKLY_PRIZES[1]} Porch Credits</span>
+          </li>
+          <li className="flex items-center justify-between">
+            <span>3rd place</span>
+            <span className="font-bold">{WEEKLY_PRIZES[2]} Porch Credits</span>
+          </li>
+        </ul>
+        <p className="mt-3 text-sm text-ink-soft">
+          Coins post Monday morning when the week rolls. Ties go to whoever
+          posted the score first. Credits can&apos;t be bought or cashed out —
+          spend them on the block. Guests can play; only logged-in neighbors
+          rank.
+        </p>
+      </Card>
+
       <div>
         <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-ink-soft">
-          Weekly rail · 1st {WEEKLY_PRIZES[0]} · 2nd {WEEKLY_PRIZES[1]} · 3rd{" "}
-          {WEEKLY_PRIZES[2]} credits
+          This week&apos;s rail
         </p>
         {board.length === 0 ? (
           <Card>

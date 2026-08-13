@@ -13,6 +13,7 @@ import {
   type SwapResult,
 } from "@/lib/quilt/engine";
 import { getNight } from "@/lib/quilt/nights";
+import { playSfx, startLoop, stopLoop } from "@/lib/quilt/audio";
 import { COLOR_HEX, type Cell, type QuiltMove, type QuiltState } from "@/lib/quilt/types";
 
 const SHAPE_SRC: Record<string, string> = {
@@ -44,6 +45,12 @@ export function QuiltPlay({
   const [shake, setShake] = useState<string | null>(null);
   const [ended, setEnded] = useState<"won" | "lost" | null>(null);
   const [pending, startTransition] = useTransition();
+  const [lesson, setLesson] = useState(nightId === "night-0" ? 0 : -1);
+
+  useEffect(() => {
+    startLoop();
+    return () => stopLoop();
+  }, []);
 
   const over = ended ?? (goalsMet(state) ? "won" : state.movesLeft <= 0 ? "lost" : null);
 
@@ -55,6 +62,7 @@ export function QuiltPlay({
     if (over) return;
     if (!selected) {
       setSelected(cell);
+      playSfx("tap", 0.4);
       return;
     }
     if (selected.r === cell.r && selected.c === cell.c) {
@@ -69,6 +77,7 @@ export function QuiltPlay({
     const res: SwapResult = swap(state, selected, cell);
     setSelected(null);
     if (!res.ok) {
+      playSfx("invalid", 0.4);
       setShake(`${cell.r},${cell.c}`);
       window.setTimeout(() => setShake(null), 240);
       speak(
@@ -78,20 +87,25 @@ export function QuiltPlay({
       );
       return;
     }
+    playSfx("swap", 0.45);
     const nextMoves = [...moves, { a: selected, b: cell }];
     setMoves(nextMoves);
     setState(res.state);
     const won = goalsMet(res.state);
     if (res.state.progress.trueMatches > state.progress.trueMatches) {
+      playSfx("true", 0.65);
       speak("True stitch! Color and shape together. That's the quilt.");
     } else if (res.state.combo > 1) {
+      playSfx("cascade", 0.55);
       speak(`Cascade — ${res.state.combo} deep. Keep going.`);
     } else {
+      playSfx("match", 0.55);
       speak("Glows. Find the next line.");
     }
     if (won || res.state.movesLeft <= 0) {
       const kind = won ? "won" : "lost";
       setEnded(kind);
+      playSfx(kind === "won" ? "win" : "lose", 0.7);
       speak(won ? "The stoop is lit. That's a night for the rail." : "Moves are gone. Replay and try another stitch.");
       startTransition(async () => {
         await submitQuiltAction({
@@ -186,6 +200,40 @@ export function QuiltPlay({
         />
         <p className="text-sm leading-snug text-ink">{ember}</p>
       </div>
+
+      {lesson >= 0 && lesson < 4 && (
+        <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/55 p-4">
+          <div className="w-full max-w-md rounded-card border border-porch-200 bg-cream p-4">
+            <div className="flex gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/games/quilt/ember-talk.png" alt="" className="h-16 w-16 object-contain" />
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-porch-700">
+                  Ember · walkthrough {lesson + 1}/4
+                </p>
+                <p className="mt-1 text-[15px] leading-snug">
+                  {[
+                    "Tap one tile. It will light up. That's your pick.",
+                    "Tap a tile next to it — up, down, left, or right. They swap.",
+                    "Three in a line of the same COLOR or the same SHAPE will glow and vanish.",
+                    "Same color AND same shape is a true stitch. Finish my card before moves run out. Then try This week's block to rank.",
+                  ][lesson]}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="mt-4 min-h-11 w-full rounded-card bg-porch-600 font-semibold text-white"
+              onClick={() => {
+                playSfx("tap", 0.4);
+                setLesson((n) => (n < 3 ? n + 1 : -1));
+              }}
+            >
+              {lesson < 3 ? "Next" : "Start stitching"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {over && (
         <div className="mt-4 rounded-card border border-porch-200 bg-porch-50 p-4 text-center">
