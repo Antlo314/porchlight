@@ -264,6 +264,14 @@ model TradeCreditEntry {
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
+  // One settlement per offer, enforced by the database rather than by a code
+  // path that could be refactored away. The row lock in settleCreditTrade
+  // stops two concurrent settlements overdrawing, but nothing stopped the SAME
+  // offer being settled twice — a double-tapped "mark complete", or a retry
+  // after a timeout — which would move the credits again and mint a second
+  // pair of ledger rows. Postgres treats NULLs as distinct, so the many rows
+  // with no offerId (signup and invite bonuses) are unaffected.
+  @@unique([offerId, reason])
 }
 
 // The other half of barter, and the half every marketplace forgets.

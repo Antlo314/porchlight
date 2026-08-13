@@ -521,6 +521,17 @@ ALTER TABLE "Want" ADD CONSTRAINT "Want_userId_fkey" FOREIGN KEY ("userId") REFE
 ALTER TABLE "Want" ADD CONSTRAINT "Want_neighborhoodId_fkey" FOREIGN KEY ("neighborhoodId") REFERENCES "Neighborhood"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 
+-- ===== 20260811100000_settle_once_per_offer =====
+
+-- One settlement per offer.
+--
+-- NULL offerId rows (signup bonuses, invite bonuses, adjustments) are exempt:
+-- Postgres treats NULLs as distinct in a unique index, so any number of them
+-- coexist. Only rows that actually reference an offer are constrained.
+CREATE UNIQUE INDEX "TradeCreditEntry_offerId_reason_key"
+    ON "TradeCreditEntry"("offerId", "reason");
+
+
 -- ---------------------------------------------------------------
 -- Georgia neighborhoods
 -- ---------------------------------------------------------------

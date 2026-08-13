@@ -10,24 +10,64 @@
 // why it was suggested. An opaque score that surfaces a lawnmower for a
 // babysitting request destroys trust in every future match.
 import { db } from "./db";
-import { notify } from "./notify";
+import { notifyMany } from "./notify";
 import { visibleNeighborhoodIds } from "./visibility";
 
-/** Words carrying no signal about what a thing actually is. */
+/**
+ * Words carrying no signal about WHAT a thing is.
+ *
+ * Three groups, and the last two were learned from false positives caught by
+ * scripts/stress/matching-quality.mjs:
+ *  - grammar ("the", "with")
+ *  - logistics and scheduling ("weekend", "borrow", "pickup") — these are the
+ *    common carrier for bogus matches, because two unrelated posts both
+ *    mentioning "this weekend" would otherwise score as a match
+ *  - semantically empty nouns ("thing", "stuff") — grammar lists miss these,
+ *    but "anyone have a thing" matching "getting rid of some stuff" is exactly
+ *    the kind of suggestion that teaches people to ignore the feature
+ */
 const STOPWORDS = new Set([
-  "a", "an", "and", "any", "are", "for", "from", "got", "has", "have", "help",
-  "his", "her", "i", "if", "in", "is", "it", "its", "just", "looking", "me",
-  "my", "need", "needed", "needing", "of", "on", "or", "our", "out", "please",
-  "some", "someone", "that", "the", "their", "them", "there", "this", "to",
-  "up", "want", "wanted", "wanting", "was", "we", "who", "will", "with", "you",
-  "your",
+  // grammar
+  "a", "an", "and", "any", "are", "as", "at", "be", "but", "by", "can", "do",
+  "for", "from", "get", "got", "has", "have", "help", "his", "her", "i", "if",
+  "in", "is", "it", "its", "just", "looking", "me", "my", "need", "no", "not",
+  "of", "on", "or", "our", "out", "please", "so", "some", "someone", "that",
+  "the", "their", "them", "then", "there", "this", "to", "up", "us", "want",
+  "was", "we", "who", "will", "with", "would", "you", "your",
+  // logistics, scheduling, and trade-speak
+  "afternoon", "available", "borrow", "cheap", "condition", "credit",
+  "credits", "day", "drop", "evening", "fair", "free", "friday", "hour",
+  "lend", "loan", "monday", "month", "morning", "neighborhood", "neighbour",
+  "neighbor", "night", "offer", "pickup", "porch", "return", "saturday",
+  "soon", "sunday", "swap", "thursday", "today", "tomorrow", "trade",
+  "tuesday", "wednesday", "week", "weekend", "year",
+  // semantically empty nouns
+  "anything", "everything", "item", "misc", "something", "stuff", "thing",
+  "whatever",
 ]);
 
-/** Crude singularisation so "ladders" matches "ladder". */
+/**
+ * Crude singularisation so "ladders" matches "ladder".
+ *
+ * The "es" rule only fires after a sibilant. A blanket `-es` strip turns
+ * "bikes" into "bik" while "bike" stays "bike", so the two never match — which
+ * silently broke every singular noun ending in -e (bike, tire, table, hose,
+ * rake, fence, service). That is the core of the feature failing on the most
+ * ordinary words in it. Guarded by scripts/stress/matching-quality.mjs.
+ */
 function stem(word: string): string {
   if (word.length > 4 && word.endsWith("ies")) return `${word.slice(0, -3)}y`;
-  if (word.length > 3 && word.endsWith("es")) return word.slice(0, -2);
-  if (word.length > 3 && word.endsWith("s")) return word.slice(0, -1);
+  // "ss", not a lone "s". Requiring a doubled s keeps "mattresses" -> "mattress"
+  // while letting "hoses" fall through to the -s rule and become "hose"
+  // rather than "hos" — a lone s before "es" is far more often part of the
+  // singular than a sibilant plural.
+  if (word.length > 4 && /(?:ss|x|z|ch|sh)es$/.test(word)) {
+    return word.slice(0, -2);
+  }
+  // "mattress" must not become "mattres".
+  if (word.length > 3 && word.endsWith("s") && !word.endsWith("ss")) {
+    return word.slice(0, -1);
+  }
   return word;
 }
 
@@ -36,9 +76,15 @@ export function keywords(...parts: (string | null | undefined)[]): Set<string> {
   for (const part of parts) {
     if (!part) continue;
     for (const raw of part.toLowerCase().split(/[^a-z0-9]+/)) {
-      if (raw.length < 3) continue;
+      // Two characters, not three: "AC", "TV", "PC", and "RV" are real things
+      // neighbors trade and ask about, and a 3-char floor erased them entirely.
+      if (raw.length < 2) continue;
       if (STOPWORDS.has(raw)) continue;
-      out.add(stem(raw));
+      const stemmed = stem(raw);
+      // Check again after stemming: "needs" survives the raw check and only
+      // becomes the stopword "need" afterwards.
+      if (STOPWORDS.has(stemmed)) continue;
+      out.add(stemmed);
     }
   }
   return out;
@@ -64,20 +110,36 @@ export function scoreMatch(
   const wantWords = keywords(want.title, want.description);
   const shared = [...wantWords].filter((w) => listingWords.has(w));
 
-  // Category alone is too loose ("TOOLS" covers a hammer and a cement mixer),
-  // so a match needs either a shared word, or category agreement plus a
-  // title-level hit.
-  let score = 0;
-  if (sameCategory) score += 2;
-  score += shared.length * 3;
-
   const titleWords = keywords(listing.title);
   const wantTitleWords = keywords(want.title);
   const titleOverlap = [...wantTitleWords].filter((w) => titleWords.has(w));
+
+  let score = 0;
+  if (sameCategory) score += 2;
+  score += shared.length * 3;
   score += titleOverlap.length * 2;
 
-  if (score < 3) return null;
-  if (!sameCategory && shared.length === 0) return null;
+  // A single shared word is not evidence on its own. Category agreement plus
+  // one incidental word ("...this weekend") was enough to clear the old
+  // threshold, which produced confident-looking nonsense.
+  //
+  // Two independent words, or one word that BOTH sides put in their title —
+  // what someone titles a post is what they think it is.
+  //
+  // A stricter version (requiring the want's title to be that single word)
+  // was tried and reverted: it killed "Bikes for the kids" vs "Bike", which is
+  // a trade a neighbor would obviously want. The remaining false positive is
+  // a shared adjective across different nouns ("pressure washer" vs "pressure
+  // treated lumber"), which word overlap alone cannot separate — it needs
+  // rarity weighting over the neighborhood's own corpus. Documented as a known
+  // defect in scripts/stress/matching-quality.mjs rather than papered over,
+  // because missing real trades costs more than the occasional odd suggestion.
+  const strongEnough =
+    shared.length >= 2 || (shared.length === 1 && titleOverlap.length >= 1);
+  if (!strongEnough) return null;
+
+  // Category alone is never enough: "TOOLS" covers a hammer and a cement mixer.
+  if (!sameCategory && shared.length < 2) return null;
 
   return { score, sharedWords: shared.slice(0, 4), sameCategory };
 }
@@ -112,6 +174,11 @@ export async function notifyWantsMatchingListing(listing: {
         title: true,
         description: true,
       },
+      // An unordered LIMIT on Postgres returns an arbitrary, unstable subset —
+      // the same request can return different rows run to run. Newest-first
+      // makes the cap deterministic, and the @@index([neighborhoodId, status,
+      // createdAt]) on Want covers it.
+      orderBy: { createdAt: "desc" },
       take: 200,
     });
 
@@ -121,17 +188,19 @@ export async function notifyWantsMatchingListing(listing: {
       .sort((a, b) => (b.match!.score ?? 0) - (a.match!.score ?? 0))
       .slice(0, 25);
 
-    for (const { want } of hits) {
-      await notify({
-        userId: want.userId,
-        actorId: listing.ownerId,
-        type: "WANT_MATCHED",
-        payload: {
-          href: `/barter/${listing.id}`,
-          text: `Someone listed "${listing.title}" — you asked for ${want.title}.`,
-        },
-      });
-    }
+    if (hits.length === 0) return 0;
+
+    // One insert for the whole set rather than one per recipient — this runs
+    // on the critical path of posting a listing.
+    await notifyMany({
+      userIds: hits.map((h) => h.want.userId),
+      actorId: listing.ownerId,
+      type: "WANT_MATCHED",
+      payload: {
+        href: `/barter/${listing.id}`,
+        text: `A neighbor just listed "${listing.title}" — you were looking for something like this.`,
+      },
+    });
     return hits.length;
   } catch {
     return 0;
@@ -168,6 +237,7 @@ export async function findListingsForWant(want: {
       images: true,
       owner: { select: { id: true, name: true, avatarUrl: true } },
     },
+    orderBy: { createdAt: "desc" }, // see the note in notifyWantsMatchingListing
     take: 200,
   });
 
@@ -206,11 +276,17 @@ export async function matchesForMyListings(user: {
   ]);
   if (myListings.length === 0) return [];
 
+  // scoreMatch hard-gates on kind, so pre-filtering to the kinds actually
+  // listed changes nothing semantically but stops the 200-row cap being spent
+  // on wants that could never match.
+  const kinds = [...new Set(myListings.map((l) => l.kind))];
+
   const wants = await db.want.findMany({
     where: {
       status: "OPEN",
       neighborhoodId: { in: ids },
       userId: { not: user.id },
+      kind: { in: kinds },
     },
     select: {
       id: true,
@@ -221,6 +297,7 @@ export async function matchesForMyListings(user: {
       creditOffer: true,
       user: { select: { id: true, name: true, avatarUrl: true } },
     },
+    orderBy: { createdAt: "desc" },
     take: 200,
   });
 
@@ -245,5 +322,20 @@ export async function matchesForMyListings(user: {
     }
   }
 
-  return results.sort((a, b) => b.match.score - a.match.score).slice(0, 10);
+  // Dedupe by want BEFORE slicing, keeping each want's best-scoring listing.
+  //
+  // Without this the array is one row per (listing, want) pair, so three of my
+  // ladders matching one neighbor's "ladder" want counted as three neighbors
+  // on the hub while the matches page — which deduped afterwards — showed one.
+  // Worse, a pre-dedupe slice(0, 10) could spend all ten rows on two wants and
+  // hide seventeen neighbors who were actually waiting.
+  const seenWants = new Set<string>();
+  return results
+    .sort((a, b) => b.match.score - a.match.score)
+    .filter((r) => {
+      if (seenWants.has(r.want.id)) return false;
+      seenWants.add(r.want.id);
+      return true;
+    })
+    .slice(0, 10);
 }

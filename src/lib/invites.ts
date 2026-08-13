@@ -98,30 +98,15 @@ export async function resolveInvite(
   };
 }
 
-/** How many inviter bonuses this member has already been paid, and when. */
-async function inviterBonusUsage(inviterId: string) {
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-
-  const [lifetime, today] = await Promise.all([
-    db.tradeCreditEntry.count({
-      where: {
-        userId: inviterId,
-        reason: "INVITE_BONUS",
-        delta: INVITE_BONUS_INVITER,
-      },
-    }),
-    db.tradeCreditEntry.count({
-      where: {
-        userId: inviterId,
-        reason: "INVITE_BONUS",
-        delta: INVITE_BONUS_INVITER,
-        createdAt: { gte: startOfDay },
-      },
-    }),
-  ]);
-
-  return { lifetime, today };
+/**
+ * A rolling 24 hours, not "since local midnight".
+ *
+ * The server runs in UTC, so a calendar day would reset the cap at 7 or 8pm
+ * Georgia time — an attacker gets two full allowances in one evening, and an
+ * honest member sees their limit reset at a baffling hour.
+ */
+function windowStart(): Date {
+  return new Date(Date.now() - 24 * 60 * 60 * 1000);
 }
 
 /**
@@ -149,41 +134,70 @@ export async function awardInviteBonus(opts: {
       },
     });
 
-    const usage = await inviterBonusUsage(opts.inviterId);
-    if (
-      usage.lifetime >= INVITE_BONUS_LIFETIME_CAP ||
-      usage.today >= INVITE_BONUS_DAILY_CAP
-    ) {
-      // Still tell them someone joined — the invite worked, the bonus is just
-      // capped. Silently paying nothing would read as a bug.
-      await db.notification.create({
+    // Count-then-insert is a read-then-write, and therefore exactly the race
+    // that settleCreditTrade guards against: a burst of simultaneous signups
+    // against one code would each read "under the cap" before any of them
+    // wrote, and every one would pay out. That is precisely the farming attack
+    // the caps exist to stop, so the cap check has to hold the same kind of
+    // lock the ledger does — take the inviter's row first, then count.
+    const paid = await db.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: opts.inviterId },
+        data: { updatedAt: new Date() },
+      });
+
+      const [lifetime, recent] = await Promise.all([
+        tx.tradeCreditEntry.count({
+          where: {
+            userId: opts.inviterId,
+            reason: "INVITE_BONUS",
+            delta: INVITE_BONUS_INVITER,
+          },
+        }),
+        tx.tradeCreditEntry.count({
+          where: {
+            userId: opts.inviterId,
+            reason: "INVITE_BONUS",
+            delta: INVITE_BONUS_INVITER,
+            createdAt: { gte: windowStart() },
+          },
+        }),
+      ]);
+
+      if (
+        lifetime >= INVITE_BONUS_LIFETIME_CAP ||
+        recent >= INVITE_BONUS_DAILY_CAP
+      ) {
+        return false;
+      }
+
+      await tx.tradeCreditEntry.create({
         data: {
           userId: opts.inviterId,
-          type: "SYSTEM",
-          payload: JSON.stringify({
-            href: "/invite",
-            text: "A neighbor joined with your invite. You've hit the invite bonus cap for now, but keep sharing — the block is growing.",
-          }),
+          delta: INVITE_BONUS_INVITER,
+          reason: "INVITE_BONUS",
         },
       });
-      return;
-    }
-
-    await db.tradeCreditEntry.create({
-      data: {
-        userId: opts.inviterId,
-        delta: INVITE_BONUS_INVITER,
-        reason: "INVITE_BONUS",
-      },
+      return true;
     });
+
     await db.notification.create({
       data: {
         userId: opts.inviterId,
         type: "SYSTEM",
-        payload: JSON.stringify({
-          href: "/barter/credits",
-          text: `A neighbor joined with your invite — you earned ${INVITE_BONUS_INVITER} Porch Credits.`,
-        }),
+        payload: JSON.stringify(
+          paid
+            ? {
+                href: "/barter/credits",
+                text: `A neighbor joined with your invite — you earned ${INVITE_BONUS_INVITER} Porch Credits.`,
+              }
+            : {
+                // Still say someone joined: the invite worked, only the bonus
+                // is capped. Silence would read as the feature being broken.
+                href: "/invite",
+                text: "A neighbor joined with your invite. You've hit the bonus cap for now, but keep sharing — the block is growing.",
+              }
+        ),
       },
     });
   } catch {

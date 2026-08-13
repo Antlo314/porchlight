@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { findListingsForWant, type MatchReason } from "@/lib/matching";
+import { notifyMany } from "@/lib/notify";
 import { createWantSchema, wantStatusSchema } from "@/lib/validators";
 import { blankToUndefined, toFieldErrors } from "../formHelpers";
 
@@ -106,6 +107,23 @@ export async function createWantAction(
       title: data.title,
       description,
     });
+
+    // Tell the owners of those listings too. Matching only ran in one
+    // direction before: the want's author saw results instantly, but the
+    // neighbor holding the thing was never told — while /barter/matches
+    // promised them it "lands here and in your notifications". Half the
+    // engine's value was unwired, and the copy was false.
+    if (matches.length > 0) {
+      await notifyMany({
+        userIds: matches.map((m) => m.listing.owner.id),
+        actorId: user.id,
+        type: "WANT_MATCHED",
+        payload: {
+          href: "/barter/matches",
+          text: `${user.name} is looking for "${data.title}" — you have something listed that fits.`,
+        },
+      });
+    }
   } catch {
     matches = [];
   }
