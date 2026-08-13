@@ -10,3 +10,8 @@ npm-debug.log*
 next-env.d.ts
 .claude/settings.local.json
 .uploads/
+.vercel
+
+.wipe-key
+.env.production.local
+.env.local.bak
