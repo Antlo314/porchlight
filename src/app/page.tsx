@@ -31,7 +31,7 @@ export default async function LandingPage() {
           </p>
           <ul className="mt-6 space-y-3 text-[15px] text-ink-soft">
             <li>🤝 Barter goods, skills, and time with Porch Credits</li>
-            <li>🏮 Play Light the Block — hop porches, earn a daily drip</li>
+            <li>🏮 Play Ember&apos;s Quilt — match, rank, win weekly coins</li>
             <li>🛠️ Local pros listed free — no pay-to-be-seen</li>
           </ul>
         </div>
@@ -53,7 +53,7 @@ export default async function LandingPage() {
             href="/games"
             className="block rounded-card border border-porch-200 bg-porch-50 py-3.5 text-center font-semibold text-porch-800 active:bg-porch-100"
           >
-            Play Light the Block — no account needed
+            Play Ember&apos;s Quilt — no account needed
           </Link>
           <p className="pt-1 text-center text-xs text-ink-soft">
             Free for neighbors. Forever.

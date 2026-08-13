@@ -7,6 +7,10 @@ import { dailySeed, getLevel } from "@/lib/games/levels";
 import { parseEvents, validateRun } from "@/lib/games/scoring";
 import { issueTicket, mintNonce, readTicket, TICKET_TTL_MS } from "@/lib/games/session";
 import { GAME_ID, isLevelId, RUN_STATUS } from "@/lib/games/types";
+import { goalsMet, parseMoves, replay } from "@/lib/quilt/engine";
+import { isNightId } from "@/lib/quilt/nights";
+import { atlantaWeekKey } from "@/lib/quilt/week";
+import { recordWeeklyScore, settleLastWeek, weekLeaderboard } from "@/lib/quilt/weekly";
 
 export type StartRunResult =
   | {
@@ -253,4 +257,110 @@ export async function submitRunAction(input: {
     demo: false,
     reason: grant.reason,
   };
+}
+
+const QUILT_GAME = "EMBER_QUILT";
+
+export async function startQuiltAction(nightId: string) {
+  if (!isNightId(nightId)) {
+    return { ok: false as const, error: "That night isn't on the quilt." };
+  }
+  const user = await currentUser().catch(() => null);
+  const seed =
+    nightId === "weekly"
+      ? `weekly:${atlantaWeekKey()}:${user?.neighborhoodId ?? "atl"}`
+      : `${nightId}:v1`;
+  const nonce = mintNonce();
+  try {
+    const run = await db.gameRun.create({
+      data: {
+        userId: user?.id ?? null,
+        game: QUILT_GAME,
+        nonce,
+        levelId: nightId,
+        seed,
+        status: user ? RUN_STATUS.STARTED : RUN_STATUS.DEMO,
+      },
+    });
+    const token = issueTicket({
+      runId: run.id,
+      userId: user?.id ?? null,
+      nonce,
+      levelId: nightId,
+      seed,
+      iat: Date.now(),
+    });
+    return {
+      ok: true as const,
+      seed,
+      token,
+      demo: !user,
+      nightId,
+    };
+  } catch {
+    const token = issueTicket({
+      runId: `demo-${nonce}`,
+      userId: null,
+      nonce,
+      levelId: nightId,
+      seed,
+      iat: Date.now(),
+    });
+    return {
+      ok: true as const,
+      seed,
+      token,
+      demo: true,
+      nightId,
+    };
+  }
+}
+
+export async function submitQuiltAction(input: {
+  token: string;
+  moves: unknown;
+  claimedScore: number;
+}) {
+  const ticket = readTicket(input.token);
+  if (!ticket || !isNightId(ticket.levelId)) {
+    return { ok: false as const, error: "That run ticket isn't valid." };
+  }
+  const moves = parseMoves(input.moves);
+  if (!moves) return { ok: false as const, error: "Those moves didn't parse." };
+
+  const final = replay(ticket.levelId, ticket.seed, moves);
+  if (final.score !== input.claimedScore) {
+    return { ok: false as const, error: "The score didn't match the quilt." };
+  }
+
+  const user = await currentUser().catch(() => null);
+  if (user && ticket.userId === user.id) {
+    try {
+      await recordWeeklyScore(user.id, final.score);
+    } catch {
+      /* table may still be coming up */
+    }
+  }
+
+  return {
+    ok: true as const,
+    score: final.score,
+    won: goalsMet(final),
+    demo: !user,
+    movesLeft: final.movesLeft,
+  };
+}
+
+export async function loadQuiltHub() {
+  try {
+    await settleLastWeek();
+  } catch {
+    /* first load without tables */
+  }
+  try {
+    const board = await weekLeaderboard();
+    return { weekKey: atlantaWeekKey(), board };
+  } catch {
+    return { weekKey: atlantaWeekKey(), board: [] };
+  }
 }

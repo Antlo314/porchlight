@@ -52,6 +52,7 @@ export const CREDIT_REASON_LABELS: Record<string, string> = {
   TRADE_SPENT: "Spent on a trade",
   COMMUNITY_REWARD: "Community reward",
   GAME_REWARD: "Light the Block",
+  WEEKLY_PRIZE: "Ember's Quilt weekly",
   INVITE_BONUS: "Invite bonus",
   ADJUSTMENT: "Balance adjustment",
 };

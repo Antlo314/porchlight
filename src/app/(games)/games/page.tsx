@@ -1,32 +1,24 @@
 import { currentUser } from "@/lib/auth";
 import { GamesHub } from "@/components/games/GamesHub";
-import { LanternHero } from "@/components/games/LanternHero";
-import { gameCreditUsage } from "@/lib/games/economy";
+import { loadQuiltHub } from "./actions";
 
 export const metadata = {
   title: "Games",
-  description: "Light the Block — hop Atlanta porches and earn Porch Credits.",
+  description: "Ember's Quilt — match color or shape, light the block, win the week.",
   openGraph: {
-    title: "Light the Block",
-    description: "Hop Atlanta porches. Light the block. Earn Porch Credits.",
-    images: [{ url: "/images/games-og.jpg", width: 1200, height: 630 }],
+    title: "Ember's Quilt",
+    description: "Match three. Stitch the quilt. 1st–3rd win Porch Credits each week.",
+    images: [{ url: "/images/quilt-hub.jpg", width: 1200, height: 630 }],
   },
 };
 
 export default async function GamesPage() {
   const user = await currentUser().catch(() => null);
-  const usage = user
-    ? await gameCreditUsage(user.id).catch(() => ({ remainingToday: 0 }))
-    : { remainingToday: 0 };
+  const hub = await loadQuiltHub();
 
   return (
     <main className="mx-auto max-w-md px-4 pb-10 pt-4">
-      <LanternHero />
-      <GamesHub
-        remainingToday={usage.remainingToday}
-        demo={!user}
-        neighborhoodName={user?.neighborhood.name}
-      />
+      <GamesHub demo={!user} weekKey={hub.weekKey} board={hub.board} />
     </main>
   );
 }

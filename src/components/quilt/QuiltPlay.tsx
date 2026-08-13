@@ -1,0 +1,246 @@
+"use client";
+
+import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { startQuiltAction, submitQuiltAction } from "@/app/(games)/games/actions";
+import {
+  adjacent,
+  createState,
+  goalCount,
+  goalLabel,
+  goalsMet,
+  swap,
+  type SwapResult,
+} from "@/lib/quilt/engine";
+import { getNight } from "@/lib/quilt/nights";
+import { COLOR_HEX, type Cell, type QuiltMove, type QuiltState } from "@/lib/quilt/types";
+
+const SHAPE_SRC: Record<string, string> = {
+  lantern: "/games/quilt/lantern.png",
+  leaf: "/games/quilt/leaf.png",
+  peach: "/games/quilt/peach.png",
+  key: "/games/quilt/key.png",
+  mug: "/games/quilt/mug.png",
+  star: "/games/quilt/star.png",
+};
+
+export function QuiltPlay({
+  nightId,
+  seed,
+  token,
+}: {
+  nightId: string;
+  seed: string;
+  token: string;
+}) {
+  const night = getNight(nightId);
+  const router = useRouter();
+  const [state, setState] = useState<QuiltState>(() =>
+    createState(nightId as QuiltState["nightId"], seed)
+  );
+  const [selected, setSelected] = useState<Cell | null>(null);
+  const [ember, setEmber] = useState(night?.ember ?? "Tap a tile, then a neighbor.");
+  const [moves, setMoves] = useState<QuiltMove[]>([]);
+  const [shake, setShake] = useState<string | null>(null);
+  const [ended, setEnded] = useState<"won" | "lost" | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const over = ended ?? (goalsMet(state) ? "won" : state.movesLeft <= 0 ? "lost" : null);
+
+  function speak(text: string) {
+    setEmber(text);
+  }
+
+  function tap(cell: Cell) {
+    if (over) return;
+    if (!selected) {
+      setSelected(cell);
+      return;
+    }
+    if (selected.r === cell.r && selected.c === cell.c) {
+      setSelected(null);
+      return;
+    }
+    if (!adjacent(selected, cell)) {
+      setSelected(cell);
+      speak("Only neighbors. Up, down, left, or right.");
+      return;
+    }
+    const res: SwapResult = swap(state, selected, cell);
+    setSelected(null);
+    if (!res.ok) {
+      setShake(`${cell.r},${cell.c}`);
+      window.setTimeout(() => setShake(null), 240);
+      speak(
+        res.reason === "no-match"
+          ? "That swap doesn't stitch. Need three of a color or a shape."
+          : "That one won't go."
+      );
+      return;
+    }
+    const nextMoves = [...moves, { a: selected, b: cell }];
+    setMoves(nextMoves);
+    setState(res.state);
+    const won = goalsMet(res.state);
+    if (res.state.progress.trueMatches > state.progress.trueMatches) {
+      speak("True stitch! Color and shape together. That's the quilt.");
+    } else if (res.state.combo > 1) {
+      speak(`Cascade — ${res.state.combo} deep. Keep going.`);
+    } else {
+      speak("Glows. Find the next line.");
+    }
+    if (won || res.state.movesLeft <= 0) {
+      const kind = won ? "won" : "lost";
+      setEnded(kind);
+      speak(won ? "The stoop is lit. That's a night for the rail." : "Moves are gone. Replay and try another stitch.");
+      startTransition(async () => {
+        await submitQuiltAction({
+          token,
+          moves: nextMoves,
+          claimedScore: res.state.score,
+        });
+      });
+    }
+  }
+
+  if (!night) return <p className="p-4">That night isn't on the quilt.</p>;
+
+  return (
+    <div className="mx-auto flex min-h-dvh max-w-md flex-col bg-cream px-3 pb-8 pt-3">
+      <div className="mb-2 flex items-center justify-between">
+        <button
+          type="button"
+          className="min-h-11 text-sm font-semibold text-porch-700"
+          onClick={() => router.push("/games")}
+        >
+          ← Hub
+        </button>
+        <p className="text-sm font-bold">{night.title}</p>
+        <p className="text-sm tabular-nums text-ink-soft">{state.movesLeft} moves</p>
+      </div>
+
+      <div className="mb-2 grid grid-cols-3 gap-2 text-center text-xs">
+        {night.goals.map((g, i) => {
+          const have = goalCount(state, g);
+          const done = have >= g.n;
+          return (
+            <div
+              key={i}
+              className={`rounded-xl border px-2 py-1.5 ${
+                done ? "border-pine-500 bg-pine-500/10 text-pine-700" : "border-line bg-card"
+              }`}
+            >
+              <p className="font-semibold tabular-nums">
+                {Math.min(have, g.n)}/{g.n}
+              </p>
+              <p className="text-ink-soft">{goalLabel(g)}</p>
+            </div>
+          );
+        })}
+      </div>
+
+      <div
+        className="mx-auto grid w-full max-w-[390px] gap-1 rounded-2xl bg-[#2b2420] p-2"
+        style={{ gridTemplateColumns: "repeat(7, minmax(0, 1fr))" }}
+      >
+        {state.board.map((row, r) =>
+          row.map((tile, c) => {
+            const key = `${r},${c}`;
+            const on = selected?.r === r && selected?.c === c;
+            const shaking = shake === key;
+            const hex = tile ? COLOR_HEX[tile.color] : "#3a322c";
+            return (
+              <button
+                key={tile?.id ?? key}
+                type="button"
+                aria-label={tile ? `${tile.color} ${tile.shape}` : "empty"}
+                onClick={() => tap({ r, c })}
+                className={`aspect-square rounded-lg border-2 ${
+                  on ? "border-cream scale-105" : "border-transparent"
+                } ${shaking ? "animate-pulse" : ""}`}
+                style={{ background: hex }}
+              >
+                {tile && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={SHAPE_SRC[tile.shape]}
+                    alt=""
+                    className="h-full w-full object-contain p-0.5"
+                    draggable={false}
+                  />
+                )}
+              </button>
+            );
+          })
+        )}
+      </div>
+
+      <p className="mt-2 text-center text-sm font-bold tabular-nums">{state.score} glow</p>
+
+      <div className="mt-3 flex gap-3 rounded-card border border-line bg-card p-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/games/quilt/ember.png"
+          alt=""
+          className="h-16 w-16 shrink-0 object-contain"
+        />
+        <p className="text-sm leading-snug text-ink">{ember}</p>
+      </div>
+
+      {over && (
+        <div className="mt-4 rounded-card border border-porch-200 bg-porch-50 p-4 text-center">
+          <p className="text-lg font-bold">
+            {over === "won" ? "Stoop lit" : "Out of moves"}
+          </p>
+          <p className="mt-1 text-sm text-ink-soft">
+            {state.score} glow{pending ? " · saving…" : ""}
+          </p>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              className="min-h-11 flex-1 rounded-card bg-porch-600 font-semibold text-white"
+              onClick={() => window.location.reload()}
+            >
+              Play again
+            </button>
+            <button
+              type="button"
+              className="min-h-11 flex-1 rounded-card border border-line bg-card font-semibold"
+              onClick={() => router.push("/games")}
+            >
+              Hub
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function QuiltBoot({ nightId }: { nightId: string }) {
+  const [boot, setBoot] = useState<
+    | { status: "loading" }
+    | { status: "ready"; seed: string; token: string; nightId: string }
+    | { status: "error"; error: string }
+  >({ status: "loading" });
+
+  useEffect(() => {
+    let live = true;
+    startQuiltAction(nightId).then((res) => {
+      if (!live) return;
+      if (!res.ok) setBoot({ status: "error", error: res.error });
+      else setBoot({ status: "ready", seed: res.seed, token: res.token, nightId: res.nightId });
+    });
+    return () => {
+      live = false;
+    };
+  }, [nightId]);
+
+  if (boot.status === "loading") {
+    return <p className="p-8 text-center text-sm font-semibold">Ember is lighting the quilt…</p>;
+  }
+  if (boot.status === "error") {
+    return <p className="p-8 text-center text-sm">{boot.error}</p>;
+  }
+  return <QuiltPlay nightId={boot.nightId} seed={boot.seed} token={boot.token} />;
+}

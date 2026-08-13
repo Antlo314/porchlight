@@ -76,12 +76,10 @@ export default async function FeedPage({
         className="flex min-h-12 items-center justify-between rounded-card border border-porch-200 bg-porch-50 px-4 transition-transform duration-100 active:scale-[0.99] active:bg-porch-100/70"
       >
         <span className="text-[15px] font-semibold">
-          <span aria-hidden>🏮</span> Light the Block
+          <span aria-hidden>🏮</span> Ember&apos;s Quilt
         </span>
         <span className="flex items-center gap-2 text-sm text-ink-soft">
-          {gameUsage.remainingToday > 0
-            ? `${gameUsage.remainingToday} credits left today`
-            : "Daily drip is full"}
+          Play this week
           <span aria-hidden>→</span>
         </span>
       </Link>
