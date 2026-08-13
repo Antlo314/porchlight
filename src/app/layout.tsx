@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import PwaRegister from "@/components/PwaRegister";
+import { appUrl } from "@/lib/appUrl";
 import "./globals.css";
 
 const DESCRIPTION =
@@ -7,10 +8,9 @@ const DESCRIPTION =
 
 export const metadata: Metadata = {
   // Set NEXT_PUBLIC_APP_URL to the real domain at deploy time so share images
-  // resolve to absolute URLs.
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
-  ),
+  // resolve to absolute URLs. Resolved through appUrl() so a blank or
+  // malformed value falls back instead of failing the build.
+  metadataBase: appUrl(),
   title: { default: "Porchlight", template: "%s · Porchlight" },
   description: DESCRIPTION,
   openGraph: {

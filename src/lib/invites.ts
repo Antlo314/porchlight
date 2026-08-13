@@ -4,6 +4,7 @@
 // arriving through it lands in the right neighborhood automatically (no picker
 // to get wrong) and both sides earn credits once the invitee is real.
 import { randomBytes } from "node:crypto";
+import { appOrigin } from "./appUrl";
 import { db } from "./db";
 
 export const INVITE_BONUS_INVITER = 15;
@@ -191,7 +192,9 @@ export async function awardInviteBonus(opts: {
 }
 
 export function inviteUrl(code: string, origin?: string): string {
-  const base =
-    origin ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  // `||` not `??`: an empty origin or a blank NEXT_PUBLIC_APP_URL would
+  // otherwise produce a link like "/join/ABC12345" with no host, which is
+  // useless in a QR code or a text message.
+  const base = origin?.trim() || appOrigin();
   return `${base.replace(/\/$/, "")}/join/${code}`;
 }
