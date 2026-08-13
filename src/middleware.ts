@@ -9,7 +9,6 @@ const PUBLIC_PATHS = [
   "/api/auth/signup",
   "/api/neighborhoods",
   "/api/health",
-  "/api/admin/wipe-users",
 ];
 
 /**
