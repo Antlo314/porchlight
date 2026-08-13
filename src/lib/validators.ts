@@ -309,6 +309,24 @@ export const createBarterOfferSchema = z
     path: ["offeredItemDesc"],
   });
 
+/**
+ * The other half of a trade. A listing is "what I have"; a Want is "what I
+ * need." Recording both is what lets the app match them instead of relying on
+ * two people happening to browse at the same moment.
+ */
+export const createWantSchema = z.object({
+  kind: BarterKind,
+  title: z.string().trim().min(3, "What are you looking for?").max(100),
+  description: z.string().trim().max(1000).optional().or(z.literal("")),
+  category: BarterCategory,
+  creditOffer: z.coerce.number().int().min(1).max(10000).optional(),
+});
+
+export const wantStatusSchema = z.object({
+  wantId: z.string().min(1),
+  status: z.enum(["OPEN", "FULFILLED", "CLOSED"]),
+});
+
 export const offerDecisionSchema = z.object({
   offerId: z.string().min(1),
   decision: z.enum(["ACCEPTED", "DECLINED", "COMPLETED", "CANCELLED"]),

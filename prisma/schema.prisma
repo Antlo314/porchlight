@@ -64,6 +64,7 @@ model User {
   eventRsvps       EventRsvp[]
   boostEvents      BoostEvent[]
   jobRequests      JobRequest[]
+  wants            Want[]
 }
 
 model Neighborhood {
@@ -83,6 +84,7 @@ model Neighborhood {
   businesses     Business[]
   followers      NeighborhoodFollow[]
   jobRequests    JobRequest[]
+  wants          Want[]
 }
 
 // Members see their home neighborhood plus any they follow (nearby areas).
@@ -264,6 +266,35 @@ model TradeCreditEntry {
   @@index([userId, createdAt])
 }
 
+// The other half of barter, and the half every marketplace forgets.
+//
+// A listing says "here is what I have." A Want says "here is what I need."
+// Without both sides recorded, a trade only happens when two people
+// coincidentally browse at the right moment and each happens to have what the
+// other lacks — the double coincidence of wants, which is exactly why barter
+// economies historically collapse into currency.
+//
+// Recording wants lets the app do the matching instead of leaving it to luck:
+// a new listing can find the neighbors already waiting for it, and a new want
+// can find listings that already exist. See src/lib/matching.ts.
+model Want {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  neighborhoodId String
+  neighborhood   Neighborhood @relation(fields: [neighborhoodId], references: [id])
+  title          String
+  description    String?
+  kind           String   // GOODS | SERVICE | TIME — what they're looking for
+  category       String   // BarterCategory values (validators.ts)
+  creditOffer    Int?     // what they'd pay in Porch Credits
+  status         String   @default("OPEN") // OPEN | FULFILLED | CLOSED
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([neighborhoodId, status, createdAt])
+}
+
 // ─────────────────────────────────────────────────────────────
 // Businesses & monetization
 // ─────────────────────────────────────────────────────────────
@@ -420,7 +451,7 @@ model Notification {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      String   // NEW_COMMENT | NEW_MESSAGE | OFFER_RECEIVED | OFFER_ACCEPTED | OFFER_DECLINED | RSVP | REVIEW | JOB_REQUEST | JOB_REPLY | SYSTEM
+  type      String   // NEW_COMMENT | NEW_MESSAGE | OFFER_RECEIVED | OFFER_ACCEPTED | OFFER_DECLINED | RSVP | REVIEW | JOB_REQUEST | JOB_REPLY | WANT_MATCHED | SYSTEM
   payload   String   @default("{}") // JSON: ids/links needed to render + navigate
   readAt    DateTime?
   createdAt DateTime @default(now())

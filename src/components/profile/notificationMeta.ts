@@ -54,6 +54,11 @@ export const NOTIFICATION_META: Record<
     label: "Pro replied",
     iconClass: "bg-pine-500/10",
   },
+  WANT_MATCHED: {
+    icon: "🎯",
+    label: "Match",
+    iconClass: "bg-porch-100",
+  },
   SYSTEM: {
     icon: "🏮",
     label: "Porchlight",
@@ -75,6 +80,7 @@ const FALLBACK_TEXT: Record<NotificationType, string> = {
   REVIEW: "left a review",
   JOB_REQUEST: "asked the block for help with a job",
   JOB_REPLY: "replied to your job request",
+  WANT_MATCHED: "listed something you were looking for",
   SYSTEM: "There's an update from Porchlight",
 };
 

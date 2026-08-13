@@ -12,6 +12,7 @@ export type NotificationType =
   | "REVIEW"
   | "JOB_REQUEST"
   | "JOB_REPLY"
+  | "WANT_MATCHED"
   | "SYSTEM";
 
 export type NotificationPayload = {

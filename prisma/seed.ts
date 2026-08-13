@@ -27,6 +27,24 @@ const NEIGHBORHOODS = [
   { slug: "augusta-summerville", name: "Summerville", city: "Augusta", county: "Richmond", lat: 33.4863, lng: -82.0244 },
   { slug: "columbus-uptown", name: "Uptown", city: "Columbus", county: "Muscogee", lat: 32.4633, lng: -84.9911 },
   { slug: "macon-intown", name: "InTown", city: "Macon", county: "Bibb", lat: 32.8353, lng: -83.6329 },
+
+  // East metro — the actual launch beachhead. These are where the founding
+  // members and the first businesses are, so they matter more than the intown
+  // list above until the first neighborhood is dense.
+  { slug: "lithonia-downtown", name: "Downtown Lithonia", city: "Lithonia", county: "DeKalb", lat: 33.7126, lng: -84.1052 },
+  { slug: "lithonia-klondike", name: "Klondike", city: "Lithonia", county: "DeKalb", lat: 33.6729, lng: -84.0930 },
+  { slug: "redan", name: "Redan", city: "Lithonia", county: "DeKalb", lat: 33.7398, lng: -84.1497 },
+  { slug: "stonecrest", name: "Stonecrest", city: "Stonecrest", county: "DeKalb", lat: 33.6873, lng: -84.1327 },
+  { slug: "conyers-olde-town", name: "Olde Town", city: "Conyers", county: "Rockdale", lat: 33.6676, lng: -84.0177 },
+  { slug: "conyers-salem", name: "Salem", city: "Conyers", county: "Rockdale", lat: 33.6237, lng: -84.0361 },
+  { slug: "covington-downtown", name: "Downtown Covington", city: "Covington", county: "Newton", lat: 33.5968, lng: -83.8602 },
+  { slug: "stone-mountain-village", name: "Stone Mountain Village", city: "Stone Mountain", county: "DeKalb", lat: 33.8081, lng: -84.1702 },
+  { slug: "ellenwood", name: "Ellenwood", city: "Ellenwood", county: "DeKalb", lat: 33.6379, lng: -84.2657 },
+  { slug: "snellville-downtown", name: "Downtown Snellville", city: "Snellville", county: "Gwinnett", lat: 33.8573, lng: -84.0199 },
+  { slug: "lilburn-oldtown", name: "Old Town Lilburn", city: "Lilburn", county: "Gwinnett", lat: 33.8901, lng: -84.1430 },
+  { slug: "loganville", name: "Loganville", city: "Loganville", county: "Walton", lat: 33.8387, lng: -83.9008 },
+  { slug: "stockbridge-downtown", name: "Downtown Stockbridge", city: "Stockbridge", county: "Henry", lat: 33.5443, lng: -84.2338 },
+  { slug: "mcdonough-square", name: "McDonough Square", city: "McDonough", county: "Henry", lat: 33.4473, lng: -84.1469 },
 ];
 
 async function main() {
@@ -136,6 +154,44 @@ async function main() {
         description: "Tune-ups, flats, brake adjustments. Parts cost extra, labor is trade.",
         category: "REPAIRS",
         wants: "Sourdough starter or fresh bread, honestly",
+      },
+    ],
+  });
+
+  // Deliberately chosen so each want matches one of the listings above, and
+  // the three of them form a loop: demo wants Jerome's washer, Jerome wants
+  // Maya's tutoring, Maya wants demo's bike repair. Opening /barter/matches on
+  // any of the three accounts shows the feature working rather than an empty
+  // state that has to be imagined.
+  console.log("Seeding wants…");
+  await db.want.createMany({
+    data: [
+      {
+        userId: demo.id,
+        neighborhoodId: o4w.id,
+        kind: "GOODS",
+        title: "Pressure washer for a weekend",
+        description:
+          "Driveway and back steps have gone green. Happy to return it same day with a full tank.",
+        category: "TOOLS",
+        creditOffer: 15,
+      },
+      {
+        userId: jerome.id,
+        neighborhoodId: o4w.id,
+        kind: "TIME",
+        title: "Math tutoring for my daughter",
+        description: "8th grade algebra, an hour or two a week if anyone has it.",
+        category: "TUTORING",
+        creditOffer: 20,
+      },
+      {
+        userId: maya.id,
+        neighborhoodId: o4w.id,
+        kind: "SERVICE",
+        title: "Bike repair — flat tire and brakes",
+        description: "Commuter bike, back tire keeps going flat and the brakes drag.",
+        category: "REPAIRS",
       },
     ],
   });
