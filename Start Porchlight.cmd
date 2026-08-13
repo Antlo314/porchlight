@@ -1,6 +1,6 @@
 @echo off
 title Porchlight
-cd /d "%~dp0porchlight"
+cd /d "%~dp0"
 
 rem Already running? Just open the browser.
 powershell -NoProfile -Command "if (Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue) { exit 1 }"
@@ -26,7 +26,7 @@ echo.
 echo  Porchlight is starting at http://localhost:3000
 echo  Leave this window open while you use the app.
 echo  (If the app looks out of date after code changes, close this,
-echo   delete the porchlight\.next folder, and run this again.)
+echo   delete the .next folder, and run this again.)
 echo.
 start "" http://localhost:3000
 call npm start

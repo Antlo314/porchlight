@@ -4,7 +4,7 @@
     {
       "name": "porchlight-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "porchlight", "run", "dev"],
+      "runtimeArgs": ["run", "dev"],
       "port": 3000
     }
   ]

@@ -58,7 +58,7 @@ git remote add origin https://github.com/YOUR_USERNAME/porchlight.git && git pus
 ## 4 · Deploy
 
 Vercel → **Add New Project** → import the repo. Framework auto-detects as
-Next.js; **Root Directory must be `porchlight`**, not the repo root.
+Next.js and the app sits at the repo root, so **leave Root Directory blank**.
 
 Set these environment variables (Production scope):
 
@@ -87,11 +87,11 @@ From your machine, pointed at production. **Both steps are required** — withou
 the seed there are no Georgia neighborhoods, and signup is impossible.
 
 ```bash
-cd porchlight && DATABASE_URL="<prod-pooled>" DIRECT_URL="<prod-direct>" npx prisma migrate deploy
+DATABASE_URL="<prod-pooled>" DIRECT_URL="<prod-direct>" npx prisma migrate deploy
 ```
 
 ```bash
-cd porchlight && DATABASE_URL="<prod-pooled>" DIRECT_URL="<prod-direct>" npm run db:seed
+DATABASE_URL="<prod-pooled>" DIRECT_URL="<prod-direct>" npm run db:seed
 ```
 
 On Windows PowerShell, set them first instead:
