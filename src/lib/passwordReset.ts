@@ -1,6 +1,43 @@
 import { createHash, randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
 
+let tableReady = false;
+
+/** Production was bootstrapped with SQL, not migrate history. Create the table if missing. */
+export async function ensureResetTable() {
+  if (tableReady) return;
+  await db.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "PasswordResetToken" (
+      "id" TEXT NOT NULL,
+      "userId" TEXT NOT NULL,
+      "tokenHash" TEXT NOT NULL,
+      "ipHash" TEXT,
+      "expiresAt" TIMESTAMP(3) NOT NULL,
+      "usedAt" TIMESTAMP(3),
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "PasswordResetToken_pkey" PRIMARY KEY ("id")
+    )
+  `);
+  await db.$executeRawUnsafe(
+    `CREATE UNIQUE INDEX IF NOT EXISTS "PasswordResetToken_tokenHash_key" ON "PasswordResetToken"("tokenHash")`
+  );
+  await db.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS "PasswordResetToken_userId_createdAt_idx" ON "PasswordResetToken"("userId", "createdAt")`
+  );
+  await db.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS "PasswordResetToken_ipHash_createdAt_idx" ON "PasswordResetToken"("ipHash", "createdAt")`
+  );
+  await db.$executeRawUnsafe(`
+    DO $$ BEGIN
+      ALTER TABLE "PasswordResetToken"
+        ADD CONSTRAINT "PasswordResetToken_userId_fkey"
+        FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END $$
+  `);
+  tableReady = true;
+}
+
 export const RESET_TTL_MS = 30 * 60 * 1000;
 export const EMAIL_HOUR_CAP = 3;
 export const IP_HOUR_CAP = 10;
@@ -28,6 +65,7 @@ export async function requestPasswordReset(opts: {
   const email = opts.email.trim().toLowerCase();
   const ipHash = hashIp(opts.ip || "unknown");
 
+  await ensureResetTable();
   const recentFromIp = await db.passwordResetToken.count({
     where: { ipHash, createdAt: { gte: hourAgo() } },
   });
@@ -69,6 +107,7 @@ export async function consumePasswordReset(opts: {
   rawToken: string;
   passwordHash: string;
 }): Promise<{ userId: string; role: string; neighborhoodId: string } | null> {
+  await ensureResetTable();
   const tokenHash = hashToken(opts.rawToken);
   return db.$transaction(async (tx) => {
     const row = await tx.passwordResetToken.findUnique({
