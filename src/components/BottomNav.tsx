@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CountDot } from "@/components/ui";
+import { CountDot, Icon, type IconName } from "@/components/ui";
 
-const TABS = [
-  { href: "/feed", label: "Home", icon: "🏠" },
-  { href: "/barter", label: "Barter", icon: "🤝" },
-  { href: "/services", label: "Services", icon: "🛠️" },
-  { href: "/messages", label: "Messages", icon: "💬" },
-  { href: "/profile", label: "Me", icon: "👤" },
-] as const;
+const TABS: { href: string; label: string; icon: IconName }[] = [
+  { href: "/feed", label: "Home", icon: "home" },
+  { href: "/barter", label: "Barter", icon: "barter" },
+  { href: "/services", label: "Services", icon: "services" },
+  { href: "/messages", label: "Messages", icon: "messages" },
+  { href: "/profile", label: "Me", icon: "me" },
+];
 
 export default function BottomNav({
   unreadMessages = 0,
@@ -20,8 +20,8 @@ export default function BottomNav({
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
-      <div className="mx-auto grid max-w-md grid-cols-5">
+    <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+      <div className="pointer-events-auto mx-auto grid max-w-md grid-cols-5 rounded-full border border-line/80 bg-card/90 p-1 shadow-island backdrop-blur-xl">
         {TABS.map((tab) => {
           const active = pathname.startsWith(tab.href);
           return (
@@ -29,12 +29,14 @@ export default function BottomNav({
               key={tab.href}
               href={tab.href}
               aria-current={active ? "page" : undefined}
-              className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-[11px] transition-colors ${
-                active ? "font-semibold text-porch-700" : "text-ink-soft"
+              className={`relative flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-full text-[10px] transition-colors ${
+                active
+                  ? "bg-porch-600 font-semibold text-white shadow-glow"
+                  : "text-ink-soft active:bg-porch-50"
               }`}
             >
-              <span className="relative text-xl leading-none" aria-hidden>
-                {tab.icon}
+              <span className="relative leading-none" aria-hidden>
+                <Icon name={tab.icon} className="h-[1.15rem] w-[1.15rem]" />
                 {tab.href === "/messages" && (
                   <CountDot count={unreadMessages} />
                 )}

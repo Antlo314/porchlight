@@ -23,9 +23,10 @@ export function CreditPill({
 }) {
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1 rounded-full bg-porch-100 px-2 py-0.5 text-sm font-bold tabular-nums text-porch-800 ${className}`}
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full bg-porch-100 px-2.5 py-0.5 text-sm font-bold tabular-nums text-porch-800 ${className}`}
     >
-      🪙 {amount}
+      <span aria-hidden>🪙</span>
+      <span className="font-display">{amount}</span>
     </span>
   );
 }

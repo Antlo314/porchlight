@@ -3,6 +3,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   outputFileTracingRoot: process.cwd(),
   transpilePackages: ["phaser", "three"],
+  experimental: {
+    viewTransition: true,
+  },
   images: {
     remotePatterns: [
       // Add image CDN hosts here when uploads are wired up (e.g. UploadThing, S3)

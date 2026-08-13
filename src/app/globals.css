@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
-/* Porchlight design tokens — warm "porch glow" palette.
-   Reference these via Tailwind utilities: bg-porch-600, text-ink, bg-cream, etc. */
+/* Porchlight 2026 — porch at golden hour.
+   Reference via Tailwind: bg-porch-600, text-ink, font-display, shadow-glow. */
 @theme {
   /* Brand: warm amber glow */
   --color-porch-50: #fdf6ec;
@@ -15,22 +15,38 @@
   --color-porch-800: #833e1a;
   --color-porch-900: #6c3418;
 
-  /* Support: deep pine green (Georgia pines) */
+  /* Support: Georgia pines */
+  --color-pine-50: #f3f7f4;
+  --color-pine-100: #e2ece5;
+  --color-pine-200: #c5d9cb;
+  --color-pine-300: #9bbba5;
+  --color-pine-400: #6d937a;
   --color-pine-500: #3d6b4f;
   --color-pine-600: #2f5540;
   --color-pine-700: #264536;
+  --color-pine-800: #1c3428;
+  --color-pine-900: #14241c;
 
-  /* Neutrals: warm cream/ink */
+  /* Neutrals: warm cream / ink */
   --color-cream: #faf7f2;
   --color-card: #ffffff;
   --color-ink: #2b2420;
   --color-ink-soft: #6b5f56;
   --color-line: #e8e0d6;
 
-  --radius-card: 1rem;
+  --radius-card: 1.25rem;
 
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Helvetica Neue", sans-serif;
+  --shadow-lift:
+    0 1px 2px rgb(43 36 32 / 0.04), 0 10px 28px rgb(194 102 27 / 0.08);
+  --shadow-glow:
+    0 0 0 1px rgb(230 154 65 / 0.28), 0 10px 32px rgb(194 102 27 / 0.2);
+  --shadow-island:
+    0 10px 36px rgb(43 36 32 / 0.16), 0 0 0 1px rgb(232 224 214 / 0.85);
+
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-display: var(--font-fraunces), ui-serif, Georgia, "Times New Roman",
+    serif;
 
   --animate-slide-up: slide-up 0.24s cubic-bezier(0.32, 0.72, 0, 1);
   --animate-fade-in: fade-in 0.18s ease-out;
@@ -80,16 +96,83 @@
   }
 }
 
+@keyframes lantern-flicker {
+  0%,
+  100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 5px rgb(230 154 65 / 0.55));
+  }
+  38% {
+    opacity: 0.86;
+    filter: drop-shadow(0 0 2px rgb(230 154 65 / 0.28));
+  }
+  62% {
+    opacity: 0.97;
+    filter: drop-shadow(0 0 8px rgb(230 154 65 / 0.72));
+  }
+}
+
 html {
-  background: var(--color-cream);
+  background-color: var(--color-cream);
+  background-image:
+    radial-gradient(
+      1100px 480px at 50% -8%,
+      rgb(237 181 106 / 0.3),
+      transparent 58%
+    ),
+    radial-gradient(
+      900px 400px at 80% 108%,
+      rgb(61 107 79 / 0.09),
+      transparent 52%
+    );
   color: var(--color-ink);
   -webkit-tap-highlight-color: transparent;
 }
 
 body {
   font-family: var(--font-sans);
-  /* Reserve space for iOS/Android home indicator behind the bottom nav */
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Paper grain — CSS only, no extra asset. */
+body::before {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  opacity: 0.045;
+  mix-blend-mode: multiply;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgb(43 36 32 / 0.045) 2px,
+      rgb(43 36 32 / 0.045) 3px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 3px,
+      rgb(43 36 32 / 0.03) 3px,
+      rgb(43 36 32 / 0.03) 4px
+    );
+}
+
+.surface {
+  background: var(--color-card);
+  border: 1px solid color-mix(in srgb, var(--color-line) 80%, var(--color-porch-200));
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-lift);
+}
+
+.glow-ring {
+  box-shadow: var(--shadow-glow);
+}
+
+.lantern-flicker {
+  animation: lantern-flicker 2.8s ease-in-out infinite;
 }
 
 /* Horizontal chip/filter rows scroll without a visible scrollbar. */
@@ -189,6 +272,15 @@ body {
   animation: quilt-flash 0.35s ease-out;
 }
 
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.22s;
+}
+
 /* Respect users who ask the OS to reduce motion. */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -197,5 +289,9 @@ body {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
+  }
+
+  @view-transition {
+    navigation: none;
   }
 }

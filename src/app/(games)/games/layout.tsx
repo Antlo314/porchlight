@@ -1,7 +1,7 @@
 import Link from "next/link";
+import { BrandMark, CreditPill, Icon } from "@/components/ui";
 import { currentUser } from "@/lib/auth";
 import { creditBalance } from "@/lib/credits";
-import { CreditPill } from "@/components/ui";
 
 export default async function GamesLayout({
   children,
@@ -12,30 +12,32 @@ export default async function GamesLayout({
   const balance = user ? await creditBalance(user.id).catch(() => null) : null;
 
   return (
-    <div className="min-h-dvh bg-cream">
-      <header className="sticky top-0 z-30 border-b border-line bg-cream/90 backdrop-blur">
-        <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
+    <div className="min-h-dvh">
+      <header className="sticky top-0 z-30 border-b border-line/80 bg-cream/75 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
+        <div className="mx-auto flex max-w-md items-center justify-between px-4 py-2.5">
           <Link
             href={user ? "/feed" : "/"}
-            className="flex min-h-11 items-center gap-2 text-sm font-semibold text-porch-700"
+            className="flex min-h-11 items-center gap-1.5 text-sm font-semibold text-porch-800"
           >
-            ← {user ? "Feed" : "Porchlight"}
+            <Icon name="arrowLeft" className="h-4 w-4" />
+            {user ? "Feed" : "Home"}
           </Link>
-          <Link href="/games" className="text-sm font-bold">
-            <span aria-hidden>🏮</span> Games
-          </Link>
+          <BrandMark href="/games" size="sm" />
           {balance !== null ? (
             <Link href="/barter/credits" className="min-h-11 content-center">
               <CreditPill amount={balance} />
             </Link>
           ) : (
-            <Link href="/login?next=/games" className="text-sm font-semibold text-porch-700">
+            <Link
+              href="/login?next=/games"
+              className="text-sm font-semibold text-porch-700"
+            >
               Log in
             </Link>
           )}
         </div>
       </header>
-      {children}
+      <div className="mx-auto max-w-md px-4 pt-4">{children}</div>
     </div>
   );
 }

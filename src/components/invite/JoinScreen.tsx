@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Avatar, ButtonLink } from "@/components/ui";
+import { Avatar, BrandMark, ButtonLink, Card } from "@/components/ui";
 import { SIGNUP_BONUS } from "@/lib/credits";
 import { INVITE_BONUS_JOINER } from "@/lib/invites";
 
@@ -37,10 +37,10 @@ export function JoinScreen({
           alt=""
           className="h-full w-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-ink/10 via-transparent to-cream" />
-        <p className="absolute left-6 top-[max(1.25rem,env(safe-area-inset-top))] text-lg font-bold text-white drop-shadow-md">
-          <span aria-hidden>🏮</span> Porchlight
-        </p>
+        <div className="absolute inset-0 bg-gradient-to-b from-ink/25 via-ink/5 to-cream" />
+        <div className="absolute left-6 top-[max(1.25rem,env(safe-area-inset-top))]">
+          <BrandMark href="/" flicker onDark className="drop-shadow-md" />
+        </div>
       </div>
 
       <div className="flex flex-1 flex-col justify-between px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
@@ -59,7 +59,7 @@ export function JoinScreen({
                 </div>
               </div>
 
-              <h1 className="mt-4 text-3xl font-bold leading-tight tracking-tight">
+              <h1 className="mt-4 font-display text-3xl font-semibold leading-tight tracking-tight">
                 {invite.inviterName} invited you to {invite.neighborhoodName}
                 <span className="text-ink-soft">, {invite.city}</span>
               </h1>
@@ -69,7 +69,7 @@ export function JoinScreen({
                 actually showed up on time.
               </p>
 
-              <div className="mt-5 rounded-card border border-porch-200 bg-porch-50 p-4">
+              <Card className="mt-5 border-porch-200 bg-porch-50">
                 <p className="text-[15px] font-semibold">
                   You&apos;ll start with 🪙 {startingCredits} Porch Credits
                 </p>
@@ -92,7 +92,7 @@ export function JoinScreen({
                   anyone&apos;s time is worth the same. They can&apos;t be
                   bought or cashed out.
                 </p>
-              </div>
+              </Card>
 
               <ul className="mt-5 space-y-2.5 text-[15px] text-ink-soft">
                 <li>🤝 Barter goods, skills, and time with Porch Credits</li>
@@ -105,7 +105,7 @@ export function JoinScreen({
               <p className="text-xs font-semibold uppercase tracking-wide text-porch-700">
                 Porchlight
               </p>
-              <h1 className="mt-2 text-3xl font-bold leading-tight tracking-tight">
+              <h1 className="mt-2 font-display text-3xl font-semibold leading-tight tracking-tight">
                 That invite link didn&apos;t open a door
               </h1>
               <p className="mt-3 text-[15px] text-ink-soft">
@@ -114,7 +114,7 @@ export function JoinScreen({
                 still join and pick your neighborhood on the next screen.
               </p>
 
-              <div className="mt-5 rounded-card border border-porch-200 bg-porch-50 p-4">
+              <Card className="mt-5 border-porch-200 bg-porch-50">
                 <p className="text-[15px] font-semibold">
                   You&apos;ll still start with 🪙 {SIGNUP_BONUS} Porch Credits
                 </p>
@@ -123,7 +123,7 @@ export function JoinScreen({
                   code, ask your neighbor to send the link again — it adds{" "}
                   {INVITE_BONUS_JOINER} more.
                 </p>
-              </div>
+              </Card>
 
               <ul className="mt-5 space-y-2.5 text-[15px] text-ink-soft">
                 <li>🤝 Barter goods, skills, and time with Porch Credits</li>

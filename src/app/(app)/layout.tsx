@@ -22,9 +22,8 @@ export default async function AppLayout({
           neighborhoodName={user.neighborhood.name}
           unreadNotifications={notifications}
         />
-        {/* pb-32 clears the Fab (bottom-[4.5rem] + h-14 = 8rem), which would
-            otherwise sit on top of the last row of every list. */}
-        <main className="px-4 pb-32 pt-4">{children}</main>
+        {/* pb-36 clears the island nav + FAB so the last list row stays tappable. */}
+        <main className="px-4 pb-36 pt-4">{children}</main>
         <BottomNav unreadMessages={messages} />
       </div>
     </ToastProvider>

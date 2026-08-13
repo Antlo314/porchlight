@@ -18,7 +18,7 @@ export function GamesHub({
 
   return (
     <div className="space-y-5 pb-8">
-      <div className="overflow-hidden rounded-card border border-line bg-ink">
+      <div className="overflow-hidden rounded-card bg-ink shadow-glow">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/images/quilt-hub.jpg"
@@ -29,7 +29,9 @@ export function GamesHub({
           <p className="text-xs font-semibold uppercase tracking-wide text-porch-200">
             Porchlight Games
           </p>
-          <h1 className="mt-1 text-2xl font-bold">Ember&apos;s Quilt</h1>
+          <h1 className="mt-1 font-display text-3xl font-semibold">
+            Ember&apos;s Quilt
+          </h1>
           <p className="mt-1 text-sm text-porch-100">
             The porches went dark. Match three of a color or a shape to stitch
             the glow back. True matches — color and shape — fill the quilt
@@ -77,7 +79,7 @@ export function GamesHub({
             <li key={n.id}>
               <Link
                 href={`/games/quilt?night=${n.id}`}
-                className="block rounded-card border border-line bg-card p-4 active:bg-porch-50/50"
+                className="surface block p-4 active:bg-porch-50/50"
               >
                 <p className="text-[15px] font-semibold">
                   Night {i} · {n.title}
@@ -91,7 +93,7 @@ export function GamesHub({
 
       <Link
         href="/games/quilt?night=weekly"
-        className="block rounded-card border border-porch-200 bg-porch-50 p-4"
+        className="glow-ring block rounded-card border border-porch-200 bg-porch-50 p-4"
       >
         <p className="text-[15px] font-semibold">This week&apos;s block</p>
         <p className="mt-0.5 text-sm text-ink-soft">
@@ -186,7 +188,7 @@ export function GamesHub({
         </ButtonLink>
       )}
 
-      <details className="rounded-card border border-line bg-card p-3">
+      <details className="surface p-3">
         <summary className="min-h-11 cursor-pointer text-sm font-semibold">
           Classic: Light the Block (beta)
         </summary>

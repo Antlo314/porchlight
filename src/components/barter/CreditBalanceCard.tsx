@@ -20,7 +20,7 @@ export function CreditBalanceCard({
           <p className="text-sm font-semibold text-porch-100">
             Your Porch Credits
           </p>
-          <p className="text-3xl font-bold tabular-nums">
+          <p className="font-display text-3xl font-semibold tabular-nums">
             <span aria-hidden>🪙 </span>
             {balance}
           </p>
@@ -36,14 +36,14 @@ export function CreditBalanceCard({
   );
 
   const className =
-    "block rounded-card bg-porch-600 p-4 text-white shadow-sm shadow-porch-900/10";
+    "block rounded-card bg-porch-600 p-4 text-white shadow-glow";
 
   if (!href) return <div className={className}>{body}</div>;
 
   return (
     <Link
       href={href}
-      className={`${className} transition-transform duration-100 active:scale-[0.99] active:bg-porch-700`}
+      className={`${className} transition-transform duration-150 active:scale-[0.99] active:bg-porch-700`}
     >
       {body}
     </Link>

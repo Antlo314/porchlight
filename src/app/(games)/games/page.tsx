@@ -17,8 +17,8 @@ export default async function GamesPage() {
   const hub = await loadQuiltHub();
 
   return (
-    <main className="mx-auto max-w-md px-4 pb-10 pt-4">
+    <div className="pb-10">
       <GamesHub demo={!user} weekKey={hub.weekKey} board={hub.board} />
-    </main>
+    </div>
   );
 }

@@ -1,7 +1,7 @@
 // Form primitives. Font size stays at 16px on inputs — anything smaller makes
 // iOS Safari zoom the viewport on focus.
 const CONTROL =
-  "w-full rounded-card border border-line bg-card px-4 py-3 text-base outline-none transition-colors placeholder:text-ink-soft/70 focus:border-porch-500 disabled:opacity-60";
+  "w-full rounded-card border border-line bg-card px-4 py-3 text-base outline-none shadow-lift transition-[border-color,box-shadow] placeholder:text-ink-soft/70 focus:border-porch-400 focus:shadow-glow disabled:opacity-60";
 
 export function Field({
   label,
@@ -79,7 +79,7 @@ export function CharCount({ value, max }: { value: string; max: number }) {
 export function FormError({ children }: { children?: React.ReactNode }) {
   if (!children) return null;
   return (
-    <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
+    <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
       {children}
     </p>
   );

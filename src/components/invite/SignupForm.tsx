@@ -3,7 +3,17 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { Button, ButtonLink, Field, FormError, Input, Select } from "@/components/ui";
+import { AuthShell } from "@/components/auth/AuthShell";
+import {
+  Button,
+  ButtonLink,
+  Field,
+  FormError,
+  Input,
+  PasswordInput,
+  Select,
+  Skeleton,
+} from "@/components/ui";
 
 // Lives under components/invite because the invite flow is what made signup
 // need a server component in front of it: the code has to be resolved on the
@@ -131,19 +141,26 @@ export function SignupForm({
   const canSubmit = Boolean(activeInvite) || hoodStatus === "ready";
 
   return (
-    <main className="mx-auto max-w-md px-6 py-12">
-      <Link href="/" className="text-2xl" aria-label="Porchlight home">
-        🏮
-      </Link>
-      <h1 className="mt-4 text-2xl font-bold tracking-tight">
-        {activeInvite
+    <AuthShell
+      title={
+        activeInvite
           ? `Join ${activeInvite.neighborhoodName}`
-          : "Join your neighborhood"}
-      </h1>
-      <p className="mt-2 text-sm text-ink-soft">
-        You&apos;ll start with {startingCredits} Porch Credits to trade with.
-      </p>
-
+          : "Join your neighborhood"
+      }
+      subtitle={`You'll start with ${startingCredits} Porch Credits to trade with.`}
+      footer={
+        <>
+          Already a member?{" "}
+          <Link href="/login" className="font-semibold text-porch-700">
+            Log in
+          </Link>
+          {" · "}
+          <Link href="/games" className="font-semibold text-porch-700">
+            Play as a guest
+          </Link>
+        </>
+      }
+    >
       {activeInvite && (
         <div className="mt-5 rounded-card border border-porch-200 bg-porch-50 p-4">
           <p className="text-[15px] font-semibold">
@@ -194,9 +211,8 @@ export function SignupForm({
         </Field>
 
         <Field label="Password" hint="8 characters or more" required>
-          <Input
+          <PasswordInput
             name="password"
-            type="password"
             required
             minLength={8}
             placeholder="••••••••"
@@ -204,7 +220,13 @@ export function SignupForm({
           />
         </Field>
 
-        {!activeInvite && (
+        {!activeInvite && hoodStatus === "loading" && (
+          <Field label="Neighborhood" required>
+            <Skeleton className="h-12 w-full rounded-card" />
+          </Field>
+        )}
+
+        {!activeInvite && hoodStatus !== "loading" && (
           <Field label="Neighborhood" required>
             <Select
               name="neighborhoodId"
@@ -213,13 +235,11 @@ export function SignupForm({
               disabled={hoodStatus !== "ready"}
             >
               <option value="" disabled>
-                {hoodStatus === "loading"
-                  ? "Loading neighborhoods…"
-                  : hoodStatus === "offline"
-                    ? "Neighborhoods unavailable"
-                    : hoodStatus === "empty"
-                      ? "No neighborhoods yet"
-                      : "Pick your neighborhood"}
+                {hoodStatus === "offline"
+                  ? "Neighborhoods unavailable"
+                  : hoodStatus === "empty"
+                    ? "No neighborhoods yet"
+                    : "Pick your neighborhood"}
               </option>
               {neighborhoods.map((n) => (
                 <option key={n.id} value={n.id}>
@@ -248,12 +268,7 @@ export function SignupForm({
 
         <FormError>{error}</FormError>
 
-        <Button
-          type="submit"
-          size="lg"
-          disabled={busy || !canSubmit}
-          aria-busy={busy}
-        >
+        <Button type="submit" size="lg" busy={busy} disabled={!canSubmit}>
           {busy ? "Creating account…" : "Create account"}
         </Button>
       </form>
@@ -262,25 +277,14 @@ export function SignupForm({
         <div className="mt-5 rounded-card border border-porch-200 bg-porch-50 p-4">
           <p className="text-[15px] font-semibold">Play while the ledger is offline</p>
           <p className="mt-1 text-sm text-ink-soft">
-            Light the Block works as a guest. Sign up later, once the database
-            is connected, to keep Porch Credits.
+            Ember&apos;s Quilt works as a guest. Sign up later, once the
+            database is connected, to keep Porch Credits.
           </p>
           <ButtonLink href="/games" className="mt-3" size="md">
-            Play Light the Block
+            Play Ember&apos;s Quilt
           </ButtonLink>
         </div>
       )}
-
-      <p className="mt-6 text-center text-sm text-ink-soft">
-        Already a member?{" "}
-        <Link href="/login" className="font-semibold text-porch-700">
-          Log in
-        </Link>
-        {" · "}
-        <Link href="/games" className="font-semibold text-porch-700">
-          Play as a guest
-        </Link>
-      </p>
-    </main>
+    </AuthShell>
   );
 }

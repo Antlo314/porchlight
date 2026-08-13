@@ -3,11 +3,20 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
-import { Button, ButtonLink, Field, FormError, Input } from "@/components/ui";
+import { AuthShell } from "@/components/auth/AuthShell";
+import {
+  Button,
+  ButtonLink,
+  Field,
+  FormError,
+  Input,
+  PasswordInput,
+} from "@/components/ui";
 
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
+  const next = params.get("next") ?? "/feed";
   const [error, setError] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -37,7 +46,7 @@ function LoginForm() {
     }
 
     if (res.ok) {
-      router.push(params.get("next") ?? "/feed");
+      router.push(next);
       router.refresh();
       return;
     }
@@ -51,13 +60,33 @@ function LoginForm() {
     setBusy(false);
   }
 
+  const signupHref =
+    next && next !== "/feed"
+      ? `/signup?next=${encodeURIComponent(next)}`
+      : "/signup";
+  const forgotHref =
+    next && next !== "/feed"
+      ? `/forgot-password?next=${encodeURIComponent(next)}`
+      : "/forgot-password";
+
   return (
-    <main className="mx-auto max-w-md px-6 py-12">
-      <Link href="/" className="text-2xl" aria-label="Porchlight home">
-        🏮
-      </Link>
-      <h1 className="mt-4 text-2xl font-bold">Welcome back</h1>
-      <form onSubmit={onSubmit} className="mt-8 space-y-4">
+    <AuthShell
+      title="Welcome back"
+      subtitle="Your block is right where you left it."
+      footer={
+        <>
+          New here?{" "}
+          <Link href={signupHref} className="font-semibold text-porch-700">
+            Join your neighborhood
+          </Link>
+          {" · "}
+          <Link href="/games" className="font-semibold text-porch-700">
+            Play as a guest
+          </Link>
+        </>
+      }
+    >
+      <form onSubmit={onSubmit} className="space-y-4">
         <Field label="Email" required>
           <Input
             name="email"
@@ -68,9 +97,8 @@ function LoginForm() {
           />
         </Field>
         <Field label="Password" required>
-          <Input
+          <PasswordInput
             name="password"
-            type="password"
             required
             placeholder="••••••••"
             autoComplete="current-password"
@@ -78,11 +106,14 @@ function LoginForm() {
         </Field>
         <FormError>{error}</FormError>
         <p className="-mt-1 text-right">
-          <Link href="/forgot-password" className="text-sm font-semibold text-porch-700">
+          <Link
+            href={forgotHref}
+            className="text-sm font-semibold text-porch-700"
+          >
             Forgot password?
           </Link>
         </p>
-        <Button type="submit" size="lg" disabled={busy} aria-busy={busy}>
+        <Button type="submit" size="lg" busy={busy}>
           {busy ? "Logging in…" : "Log in"}
         </Button>
       </form>
@@ -91,26 +122,15 @@ function LoginForm() {
         <div className="mt-5 rounded-card border border-porch-200 bg-porch-50 p-4">
           <p className="text-[15px] font-semibold">The ledger is offline</p>
           <p className="mt-1 text-sm text-ink-soft">
-            Signup and login need a Neon database. You can still play Light the
-            Block as a guest right now.
+            Signup and login need the database. You can still play Ember&apos;s
+            Quilt as a guest right now.
           </p>
           <ButtonLink href="/games" className="mt-3" size="md">
-            Play Light the Block
+            Play Ember&apos;s Quilt
           </ButtonLink>
         </div>
       )}
-
-      <p className="mt-6 text-center text-sm text-ink-soft">
-        New here?{" "}
-        <Link href="/signup" className="font-semibold text-porch-700">
-          Join your neighborhood
-        </Link>
-        {" · "}
-        <Link href="/games" className="font-semibold text-porch-700">
-          Play as a guest
-        </Link>
-      </p>
-    </main>
+    </AuthShell>
   );
 }
 

@@ -41,13 +41,13 @@ export function Sheet({
       <button
         aria-label="Close"
         onClick={onClose}
-        className="animate-fade-in absolute inset-0 bg-ink/40"
+        className="animate-fade-in absolute inset-0 bg-ink/40 backdrop-blur-[2px]"
       />
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="animate-slide-up relative mx-auto w-full max-w-md rounded-t-3xl bg-card pb-[env(safe-area-inset-bottom)]"
+        className="animate-slide-up relative mx-auto w-full max-w-md rounded-t-3xl bg-card shadow-island pb-[env(safe-area-inset-bottom)]"
       >
         <div className="flex justify-center pb-1 pt-3">
           <span className="h-1 w-10 rounded-full bg-line" />

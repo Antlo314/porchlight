@@ -18,7 +18,7 @@ export function Avatar({
   size?: keyof typeof SIZES;
   className?: string;
 }) {
-  const cls = `${SIZES[size]} shrink-0 rounded-full object-cover ${className}`.trim();
+  const cls = `${SIZES[size]} shrink-0 rounded-full object-cover ring-2 ring-card ${className}`.trim();
 
   if (src) {
     // eslint-disable-next-line @next/next/no-img-element -- avatars come from

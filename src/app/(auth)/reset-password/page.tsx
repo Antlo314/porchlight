@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
-import { Button, Field, FormError, Input } from "@/components/ui";
+import { AuthShell } from "@/components/auth/AuthShell";
+import { Button, Field, FormError, PasswordInput } from "@/components/ui";
 
 function ResetForm() {
   const router = useRouter();
@@ -43,6 +44,7 @@ function ResetForm() {
       }
       router.push("/feed");
       router.refresh();
+      return;
     } catch {
       setError("Couldn't reach Porchlight. Check your connection.");
       setBusy(false);
@@ -50,41 +52,38 @@ function ResetForm() {
   }
 
   return (
-    <main className="mx-auto max-w-md px-6 py-12">
-      <Link href="/" className="text-2xl" aria-label="Porchlight home">
-        🏮
-      </Link>
-      <h1 className="mt-4 text-2xl font-bold">Choose a new password</h1>
-      <form onSubmit={onSubmit} className="mt-6 space-y-4">
+    <AuthShell
+      title="Choose a new password"
+      subtitle="Eight characters or more. You'll be signed in after it saves."
+      footer={
+        <Link href="/forgot-password" className="font-semibold text-porch-700">
+          Request a new link
+        </Link>
+      }
+    >
+      <form onSubmit={onSubmit} className="space-y-4">
         <Field label="New password" hint="8 characters or more" required>
-          <Input
+          <PasswordInput
             name="password"
-            type="password"
             required
             minLength={8}
             autoComplete="new-password"
           />
         </Field>
         <Field label="Confirm password" required>
-          <Input
+          <PasswordInput
             name="confirm"
-            type="password"
             required
             minLength={8}
             autoComplete="new-password"
           />
         </Field>
         <FormError>{error}</FormError>
-        <Button type="submit" size="lg" disabled={busy || !token} aria-busy={busy}>
+        <Button type="submit" size="lg" busy={busy} disabled={!token}>
           {busy ? "Saving…" : "Save password and log in"}
         </Button>
       </form>
-      <p className="mt-6 text-center text-sm text-ink-soft">
-        <Link href="/forgot-password" className="font-semibold text-porch-700">
-          Request a new link
-        </Link>
-      </p>
-    </main>
+    </AuthShell>
   );
 }
 

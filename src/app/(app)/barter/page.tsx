@@ -54,7 +54,7 @@ export default async function BarterPage() {
       {matches.length > 0 && (
         <Link
           href="/barter/matches"
-          className="block rounded-card bg-porch-600 p-4 text-white transition-transform duration-100 active:scale-[0.99]"
+          className="block rounded-card bg-porch-600 p-4 text-white shadow-glow transition-transform duration-150 active:scale-[0.99]"
         >
           <p className="text-[15px] font-bold">
             <span aria-hidden>🎯</span>{" "}

@@ -1,6 +1,22 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { BrandMark, ButtonLink, Card } from "@/components/ui";
 import { getSession } from "@/lib/session";
+
+const FEATURES = [
+  {
+    title: "Barter on the block",
+    body: "Goods, skills, and time — paid in Porch Credits you earn, never buy.",
+  },
+  {
+    title: "Ember’s Quilt",
+    body: "Match color and shape. Rank weekly. The porch glows again.",
+  },
+  {
+    title: "Local pros, listed free",
+    body: "Find the neighbor who actually shows up. No pay-to-be-seen.",
+  },
+] as const;
 
 export default async function LandingPage() {
   const session = await getSession();
@@ -8,8 +24,7 @@ export default async function LandingPage() {
 
   return (
     <main className="relative mx-auto flex min-h-dvh max-w-md flex-col">
-      {/* Hero — the porch at golden hour, fading into the cream page. */}
-      <div className="relative h-[52dvh] w-full overflow-hidden">
+      <div className="relative h-[46dvh] w-full overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element -- static hero,
             full-viewport-width in a fixed box; next/image adds nothing here */}
         <img
@@ -17,46 +32,58 @@ export default async function LandingPage() {
           alt=""
           className="h-full w-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-ink/10 via-transparent to-cream" />
+        <div className="absolute inset-0 bg-gradient-to-b from-ink/25 via-ink/5 to-cream" />
+        <div className="absolute left-6 top-[max(1.25rem,env(safe-area-inset-top))]">
+          <BrandMark href="/" flicker onDark className="drop-shadow-md" />
+        </div>
       </div>
 
-      <div className="flex flex-1 flex-col justify-between px-6 pb-6">
-        <div className="-mt-10 relative">
-          <h1 className="text-4xl font-bold tracking-tight">
-            <span aria-hidden>🏮</span> Porchlight
-          </h1>
-          <p className="mt-3 text-lg text-ink-soft">
-            Your Georgia neighborhood, together. News, trades, local pros, and
-            neighbors you can actually reach.
+      <div className="flex flex-1 flex-col justify-between px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        <div className="animate-slide-up relative -mt-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-porch-700">
+            Georgia neighborhoods
           </p>
-          <ul className="mt-6 space-y-3 text-[15px] text-ink-soft">
-            <li>🤝 Barter goods, skills, and time with Porch Credits</li>
-            <li>🏮 Play Ember&apos;s Quilt — match, rank, win weekly coins</li>
-            <li>🛠️ Local pros listed free — no pay-to-be-seen</li>
+          <h1 className="mt-2 font-display text-[2.15rem] font-semibold leading-[1.12] tracking-tight">
+            Your block, together.
+          </h1>
+          <p className="mt-3 text-[16px] leading-relaxed text-ink-soft">
+            News, trades, local pros, and neighbors you can actually reach.
+          </p>
+
+          <ul className="mt-5 space-y-2.5">
+            {FEATURES.map((f) => (
+              <li key={f.title}>
+                <Card className="p-3.5">
+                  <p className="font-display text-[15px] font-semibold">
+                    {f.title}
+                  </p>
+                  <p className="mt-0.5 text-sm text-ink-soft">{f.body}</p>
+                </Card>
+              </li>
+            ))}
           </ul>
         </div>
 
-        <div className="mt-8 space-y-3">
-          <Link
-            href="/signup"
-            className="block rounded-card bg-porch-600 py-3.5 text-center font-semibold text-white active:bg-porch-700"
-          >
+        <div className="mt-7 space-y-3">
+          <ButtonLink href="/signup" size="lg">
             Join your neighborhood
-          </Link>
-          <Link
-            href="/login"
-            className="block rounded-card border border-line bg-card py-3.5 text-center font-semibold active:bg-porch-50"
-          >
+          </ButtonLink>
+          <ButtonLink href="/login" variant="secondary" size="lg">
             Log in
-          </Link>
-          <Link
+          </ButtonLink>
+          <ButtonLink
             href="/games"
-            className="block rounded-card border border-porch-200 bg-porch-50 py-3.5 text-center font-semibold text-porch-800 active:bg-porch-100"
+            variant="ghost"
+            size="lg"
+            className="border border-porch-200 bg-porch-50 text-porch-800"
           >
-            Play Ember&apos;s Quilt — no account needed
-          </Link>
+            Play Ember’s Quilt — no account needed
+          </ButtonLink>
           <p className="pt-1 text-center text-xs text-ink-soft">
-            Free for neighbors. Forever.
+            Free for neighbors. Forever.{" "}
+            <Link href="/join" className="font-semibold text-porch-700">
+              Have an invite?
+            </Link>
           </p>
         </div>
       </div>

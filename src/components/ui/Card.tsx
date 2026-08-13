@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-const CARD_BASE = "rounded-card border border-line bg-card";
+const CARD_BASE = "surface";
 
 export function Card({
   className = "",
@@ -33,7 +33,7 @@ export function CardLink({
   return (
     <Link
       href={href}
-      className={`block ${CARD_BASE} ${padded ? "p-4" : ""} transition-transform duration-100 active:scale-[0.99] active:bg-porch-50/50 ${className}`.trim()}
+      className={`block ${CARD_BASE} ${padded ? "p-4" : ""} transition-[transform,box-shadow] duration-150 active:scale-[0.99] active:bg-porch-50/40 ${className}`.trim()}
     >
       {children}
     </Link>
@@ -49,7 +49,7 @@ export function SectionHeading({
 }) {
   return (
     <div className="mb-2 mt-6 flex items-baseline justify-between first:mt-0">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-soft">
+      <h2 className="font-display text-sm font-semibold uppercase tracking-[0.14em] text-ink-soft">
         {title}
       </h2>
       {action}

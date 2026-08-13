@@ -30,7 +30,7 @@ export function ProfileHeader({
       <div className="flex items-center gap-4">
         <Avatar name={name} src={avatarUrl} size="xl" />
         <div className="min-w-0 flex-1">
-          <h1 className="flex items-center gap-1.5 text-xl font-bold leading-tight">
+          <h1 className="flex items-center gap-1.5 font-display text-2xl font-semibold leading-tight">
             <span className="truncate">{name}</span>
             {verified && <VerifiedMark label="Verified resident" />}
           </h1>

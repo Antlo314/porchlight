@@ -1,6 +1,6 @@
 import { PostCard } from "@/components/post/PostCard";
 import { PostTypeFilter } from "@/components/post/PostTypeFilter";
-import { EmptyState, Fab } from "@/components/ui";
+import { EmptyState, Fab, LanternMark } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { POST_TYPE_META, PostType } from "@/lib/validators";
@@ -58,7 +58,7 @@ export default async function FeedPage({
           so the feed is its entry point. */}
       <Link
         href="/events"
-        className="flex min-h-12 items-center justify-between rounded-card border border-line bg-card px-4 transition-transform duration-100 active:scale-[0.99] active:bg-porch-50/50"
+        className="surface flex min-h-12 items-center justify-between px-4 transition-transform duration-150 active:scale-[0.99] active:bg-porch-50/50"
       >
         <span className="text-[15px] font-semibold">
           <span aria-hidden>📅</span> Upcoming events
@@ -73,10 +73,11 @@ export default async function FeedPage({
 
       <Link
         href="/games"
-        className="flex min-h-12 items-center justify-between rounded-card border border-porch-200 bg-porch-50 px-4 transition-transform duration-100 active:scale-[0.99] active:bg-porch-100/70"
+        className="glow-ring flex min-h-12 items-center justify-between rounded-card border border-porch-200 bg-porch-50 px-4 transition-transform duration-150 active:scale-[0.99] active:bg-porch-100/70"
       >
-        <span className="text-[15px] font-semibold">
-          <span aria-hidden>🏮</span> Ember&apos;s Quilt
+        <span className="flex items-center gap-2 text-[15px] font-semibold">
+          <LanternMark className="h-5 w-5" />
+          Ember&apos;s Quilt
         </span>
         <span className="flex items-center gap-2 text-sm text-ink-soft">
           Play this week

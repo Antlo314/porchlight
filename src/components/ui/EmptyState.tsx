@@ -34,7 +34,7 @@ export function EmptyState({
           {icon}
         </span>
       )}
-      <h2 className="mt-3 text-lg font-semibold">{title}</h2>
+      <h2 className="mt-3 font-display text-xl font-semibold">{title}</h2>
       <p className="mt-1 max-w-xs text-sm text-ink-soft">{body}</p>
       {actionLabel && actionHref && (
         <ButtonLink href={actionHref} size="md" className="mt-5">

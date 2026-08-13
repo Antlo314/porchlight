@@ -1,7 +1,20 @@
 import type { Metadata, Viewport } from "next";
+import { Figtree, Fraunces } from "next/font/google";
 import PwaRegister from "@/components/PwaRegister";
 import { appUrl } from "@/lib/appUrl";
 import "./globals.css";
+
+const figtree = Figtree({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-figtree",
+});
+
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-fraunces",
+});
 
 const DESCRIPTION =
   "Your Georgia neighborhood, together — news, barter, local services, and neighbors you can actually reach.";
@@ -27,7 +40,6 @@ export const metadata: Metadata = {
   },
   applicationName: "Porchlight",
   manifest: "/manifest.webmanifest",
-  // Standalone launch from the iOS home screen, with the app name under the icon.
   appleWebApp: {
     capable: true,
     title: "Porchlight",
@@ -47,7 +59,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1, // app-like feel; prevents zoom-on-input-focus on iOS
+  maximumScale: 1,
   themeColor: "#c2661b",
 };
 
@@ -57,7 +69,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${figtree.variable} ${fraunces.variable}`}>
       <body className="min-h-dvh antialiased">
         {children}
         <PwaRegister />

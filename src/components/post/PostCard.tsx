@@ -48,7 +48,7 @@ export function PostCard({ post }: { post: FeedPost }) {
       </div>
 
       {post.title && (
-        <h2 className="mt-3 text-[17px] font-bold leading-snug">
+        <h2 className="mt-3 font-display text-[1.15rem] font-semibold leading-snug">
           {post.title}
         </h2>
       )}

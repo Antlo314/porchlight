@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { AuthShell } from "@/components/auth/AuthShell";
 import { Button, Field, FormError, Input } from "@/components/ui";
 
 export default function ForgotPasswordPage() {
@@ -39,26 +40,27 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="mx-auto max-w-md px-6 py-12">
-      <Link href="/" className="text-2xl" aria-label="Porchlight home">
-        🏮
-      </Link>
-      <h1 className="mt-4 text-2xl font-bold">Forgot your password?</h1>
-      <p className="mt-2 text-sm text-ink-soft">
-        Enter the email on the account. If it&apos;s on Porchlight, we&apos;ll
-        send a reset link that works for 30 minutes.
-      </p>
-
+    <AuthShell
+      title="Forgot your password?"
+      subtitle="Enter the email on the account. If it's on Porchlight, we'll send a reset link that works for 30 minutes."
+      footer={
+        <Link href="/login" className="font-semibold text-porch-700">
+          Back to log in
+        </Link>
+      }
+    >
       {done ? (
-        <div className="mt-6 rounded-card border border-porch-200 bg-porch-50 p-4">
-          <p className="text-[15px] font-semibold">Check your inbox</p>
+        <div className="surface p-4">
+          <p className="font-display text-[17px] font-semibold">
+            Check your inbox
+          </p>
           <p className="mt-1 text-sm text-ink-soft">
             If that email is on Porchlight, we sent a reset link. It expires in
             30 minutes.
           </p>
         </div>
       ) : (
-        <form onSubmit={onSubmit} className="mt-6 space-y-4">
+        <form onSubmit={onSubmit} className="space-y-4">
           <Field label="Email" required>
             <Input
               name="email"
@@ -69,17 +71,11 @@ export default function ForgotPasswordPage() {
             />
           </Field>
           <FormError>{error}</FormError>
-          <Button type="submit" size="lg" disabled={busy} aria-busy={busy}>
+          <Button type="submit" size="lg" busy={busy}>
             {busy ? "Sending…" : "Send reset link"}
           </Button>
         </form>
       )}
-
-      <p className="mt-6 text-center text-sm text-ink-soft">
-        <Link href="/login" className="font-semibold text-porch-700">
-          Back to log in
-        </Link>
-      </p>
-    </main>
+    </AuthShell>
   );
 }
