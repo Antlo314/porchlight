@@ -156,15 +156,7 @@ export default async function PricingPage() {
         </Card>
       </section>
 
-      {!(stripeConfigured() && paidPlansReady()) && (
-        <Callout tone="quiet">
-          <h2 className="text-sm font-semibold">Checkout is warming up</h2>
-          <p className="mt-1 text-sm text-ink-soft">
-            Paid plans need a card. If this note is still here after a refresh,
-            Stripe isn&apos;t reaching this deploy yet.
-          </p>
-        </Callout>
-      )}
+
     </div>
   );
 }

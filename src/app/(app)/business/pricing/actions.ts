@@ -10,7 +10,7 @@ import {
   priceIdForPlan,
   stripeConfigured,
 } from "@/lib/stripe";
-import { PLAN_META, Plan } from "@/lib/validators";
+import { Plan } from "@/lib/validators";
 import type { ActionResult } from "@/components/business/types";
 
 export async function choosePlan(input: unknown): Promise<ActionResult> {
@@ -185,6 +185,4 @@ async function cancelToFree(opts: {
   return { ok: true };
 }
 
-/** Kept so manage pages can still mention plan prices without importing Stripe. */
-export const planPrice = (plan: keyof typeof PLAN_META) =>
-  PLAN_META[plan].priceMonthly;
+
