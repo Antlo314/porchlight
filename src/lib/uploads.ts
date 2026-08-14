@@ -85,8 +85,13 @@ export const CONTENT_TYPE_BY_EXT: Record<string, string> = {
   gif: "image/gif",
 };
 
+function blobToken() {
+  // Bracket access so Next.js cannot inline an empty value at build time.
+  return process.env["BLOB_READ_WRITE_TOKEN"]?.trim() ?? "";
+}
+
 export function usingBlobStorage(): boolean {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+  return Boolean(blobToken());
 }
 
 export async function storeImage(file: Blob): Promise<UploadResult> {
@@ -113,7 +118,8 @@ export async function storeImage(file: Blob): Promise<UploadResult> {
   // and it leaks whatever the uploader happened to call the file).
   const name = `${Date.now().toString(36)}-${randomBytes(8).toString("hex")}.${ext}`;
 
-  if (usingBlobStorage()) {
+  const token = blobToken();
+  if (token) {
     try {
       // Imported lazily so local development never loads the SDK.
       const { put } = await import("@vercel/blob");
@@ -121,6 +127,7 @@ export async function storeImage(file: Blob): Promise<UploadResult> {
       const blob = await put(`porchlight/${name}`, Buffer.from(bytes), {
         access: "public",
         contentType: actualType,
+        token,
         // Our name is already random; Vercel's suffix would only make the URL
         // longer and harder to reason about.
         addRandomSuffix: false,
