@@ -40,7 +40,7 @@ export type ServiceListingRow = {
 
 /** Uniform result shape every action in this vertical returns to the client. */
 export type ActionResult =
-  | { ok: true }
+  | { ok: true; checkoutUrl?: string; portalUrl?: string }
   | { ok: false; error: string; upgradeRequired?: boolean };
 
 /**

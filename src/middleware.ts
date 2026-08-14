@@ -13,6 +13,7 @@ const PUBLIC_PATHS = [
   "/api/auth/reset-password",
   "/api/neighborhoods",
   "/api/health",
+  "/api/stripe/webhook",
 ];
 
 /**

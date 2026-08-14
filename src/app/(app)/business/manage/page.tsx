@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BusinessAnalytics } from "@/components/business/BusinessAnalytics";
+import { ManageBillingButton } from "@/components/business/ManageBillingButton";
 import { BusinessLogo } from "@/components/business/BusinessLogo";
 import { BusinessProfileEditor } from "@/components/business/BusinessProfileEditor";
 import { ServiceListingManager } from "@/components/business/ServiceListingManager";
@@ -190,6 +191,7 @@ export default async function ManageBusinessPage() {
             >
               {plan === "FREE" ? "Compare plans" : "Change plan"}
             </ButtonLink>
+            {business.subscription?.stripeCustomerId && <ManageBillingButton />}
           </div>
         </Card>
       </section>

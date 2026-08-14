@@ -15,9 +15,8 @@ import { choosePlan } from "@/app/(app)/business/pricing/actions";
 const PLANS = Plan.options as readonly PlanValue[];
 
 /**
- * Plan comparison cards. "Choose plan" hits a server action that writes the
- * plan directly — billing isn't wired to Stripe yet, and we don't collect card
- * details or mock a checkout flow (see actions.ts for the exact swap).
+ * Plan comparison cards. Paid plans open Stripe Checkout. The plan on the
+ * business only changes after Stripe confirms payment via webhook.
  */
 export function PlanPicker({
   currentPlan,
@@ -38,6 +37,10 @@ export function PlanPicker({
     startTransition(async () => {
       const result = await choosePlan(plan);
       setChoosing(null);
+      if (result.ok && result.checkoutUrl) {
+        window.location.assign(result.checkoutUrl);
+        return;
+      }
       if (result.ok) toast(`You're on ${PLAN_META[plan].label}`);
       else setError(result.error);
     });
@@ -126,10 +129,12 @@ export function PlanPicker({
                   onClick={() => select(plan)}
                 >
                   {choosing === plan
-                    ? "Switching…"
+                    ? meta.priceMonthly === 0
+                      ? "Switching…"
+                      : "Opening checkout…"
                     : meta.priceMonthly === 0
                       ? "Switch to Free"
-                      : `Choose ${meta.label}`}
+                      : `Get ${meta.label} — $${meta.priceMonthly}/mo`}
                 </Button>
               )}
             </div>
