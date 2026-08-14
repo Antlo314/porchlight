@@ -142,6 +142,14 @@ export async function storeImage(file: Blob): Promise<UploadResult> {
     }
   }
 
+  if (process.env.VERCEL) {
+    return {
+      ok: false,
+      error:
+        "Photo storage isn't connected on this deploy yet. Attach the Vercel Blob store, then try again.",
+    };
+  }
+
   try {
     await mkdir(UPLOAD_DIR, { recursive: true });
     await writeFile(path.join(UPLOAD_DIR, name), bytes);
