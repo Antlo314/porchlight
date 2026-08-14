@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { mailConfigured } from "@/lib/mail";
 import { authSecretConfigured } from "@/lib/session";
+import { paidPlansReady, stripeConfigured } from "@/lib/stripe";
 import { usingBlobStorage } from "@/lib/uploads";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +28,11 @@ export async function GET() {
         ? "blob"
         : "oidc"
       : "disk",
+    stripe: stripeConfigured()
+      ? paidPlansReady()
+        ? "ok"
+        : "prices-missing"
+      : "missing",
     games: true,
   });
 }

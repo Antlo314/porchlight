@@ -89,10 +89,14 @@ export async function choosePlan(input: unknown): Promise<ActionResult> {
     }
     return { ok: true, checkoutUrl: session.url };
   } catch (err) {
-    console.error("stripe checkout failed", err instanceof Error ? err.message : err);
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("stripe checkout failed", message);
+    const modeMix = /no such price/i.test(message);
     return {
       ok: false,
-      error: "Couldn't start checkout. Try again in a minute.",
+      error: modeMix
+        ? "Stripe rejected that price — the price IDs and the secret key have to be from the same mode (both test or both live)."
+        : "Couldn't start checkout. Try again in a minute.",
     };
   }
 }

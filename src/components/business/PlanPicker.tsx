@@ -21,9 +21,13 @@ const PLANS = Plan.options as readonly PlanValue[];
 export function PlanPicker({
   currentPlan,
   hasBusiness,
+  checkoutLive,
+  billed,
 }: {
   currentPlan: PlanValue | null;
   hasBusiness: boolean;
+  checkoutLive: boolean;
+  billed: boolean;
 }) {
   const [choosing, setChoosing] = useState<PlanValue | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +43,15 @@ export function PlanPicker({
       setChoosing(null);
       if (result.ok && result.checkoutUrl) {
         window.location.assign(result.checkoutUrl);
+        return;
+      }
+      if (PLAN_META[plan].priceMonthly > 0) {
+        const msg =
+          !result.ok
+            ? result.error
+            : "Checkout didn't open. Refresh and try again.";
+        setError(msg);
+        toast(msg, "error");
         return;
       }
       if (result.ok) toast(`You're on ${PLAN_META[plan].label}`);
@@ -117,7 +130,7 @@ export function PlanPicker({
                 >
                   List your business first
                 </ButtonLink>
-              ) : isCurrent ? (
+              ) : isCurrent && (meta.priceMonthly === 0 || billed) ? (
                 <Button size="lg" variant="secondary" disabled>
                   Your current plan
                 </Button>
@@ -134,7 +147,9 @@ export function PlanPicker({
                       : "Opening checkout…"
                     : meta.priceMonthly === 0
                       ? "Switch to Free"
-                      : `Get ${meta.label} — $${meta.priceMonthly}/mo`}
+                      : checkoutLive
+                        ? `Pay $${meta.priceMonthly}/mo — ${meta.label}`
+                        : `Get ${meta.label} — $${meta.priceMonthly}/mo`}
                 </Button>
               )}
             </div>

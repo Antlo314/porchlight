@@ -1,8 +1,18 @@
 import Stripe from "stripe";
 import type { PlanValue } from "@/lib/validators";
 
+function env(name: string) {
+  return process.env[name]?.trim().replace(/[\r\n]+/g, "") ?? "";
+}
+
+/** Public Stripe Price ids — env wins, these keep checkout alive if env is blank. */
+const FALLBACK_PRICE: Record<"LOCAL_PRO" | "FEATURED", string> = {
+  LOCAL_PRO: "price_1U4BWfJEuLwGE0CK7b8hJl5X",
+  FEATURED: "price_1U4BXwJEuLwGE0CKoszNsI52",
+};
+
 function secret() {
-  return process.env["STRIPE_SECRET_KEY"]?.trim() ?? "";
+  return env("STRIPE_SECRET_KEY");
 }
 
 export function stripeConfigured() {
@@ -22,19 +32,17 @@ export function getStripe(): Stripe {
 
 export function priceIdForPlan(plan: PlanValue): string {
   if (plan === "LOCAL_PRO") {
-    return process.env["STRIPE_PRICE_LOCAL_PRO"]?.trim() ?? "";
+    return env("STRIPE_PRICE_LOCAL_PRO") || FALLBACK_PRICE.LOCAL_PRO;
   }
   if (plan === "FEATURED") {
-    return process.env["STRIPE_PRICE_FEATURED"]?.trim() ?? "";
+    return env("STRIPE_PRICE_FEATURED") || FALLBACK_PRICE.FEATURED;
   }
   return "";
 }
 
 export function planFromPriceId(priceId: string): PlanValue | null {
-  const local = process.env["STRIPE_PRICE_LOCAL_PRO"]?.trim();
-  const featured = process.env["STRIPE_PRICE_FEATURED"]?.trim();
-  if (local && priceId === local) return "LOCAL_PRO";
-  if (featured && priceId === featured) return "FEATURED";
+  if (priceId && priceId === priceIdForPlan("LOCAL_PRO")) return "LOCAL_PRO";
+  if (priceId && priceId === priceIdForPlan("FEATURED")) return "FEATURED";
   return null;
 }
 

@@ -6,6 +6,7 @@ import { Card, SectionHeading } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { pluralize } from "@/lib/format";
+import { paidPlansReady, stripeConfigured } from "@/lib/stripe";
 import {
   AD_BOOST_MIN_RATING,
   AD_BOOST_POOL_SHARE,
@@ -49,7 +50,12 @@ export default async function PricingPage() {
   const [business, pool] = await Promise.all([
     db.business.findFirst({
       where: { ownerId: user.id },
-      select: { id: true, subscription: { select: { plan: true, status: true } } },
+      select: {
+        id: true,
+        subscription: {
+          select: { plan: true, status: true, stripeSubscriptionId: true },
+        },
+      },
     }),
     adBoostPoolSnapshot(),
   ]);
@@ -93,7 +99,12 @@ export default async function PricingPage() {
         </p>
       </Callout>
 
-      <PlanPicker currentPlan={currentPlan} hasBusiness={business !== null} />
+      <PlanPicker
+        currentPlan={currentPlan}
+        hasBusiness={business !== null}
+        checkoutLive={stripeConfigured() && paidPlansReady()}
+        billed={Boolean(business?.subscription?.stripeSubscriptionId)}
+      />
 
       <section>
         <SectionHeading title="The Ad-Boost Pool" />
@@ -145,14 +156,15 @@ export default async function PricingPage() {
         </Card>
       </section>
 
-      <Callout tone="quiet">
-        <h2 className="text-sm font-semibold">Billing isn&apos;t live yet</h2>
-        <p className="mt-1 text-sm text-ink-soft">
-          Card processing (Stripe) isn&apos;t connected, so choosing a plan
-          switches it immediately and charges nothing. We don&apos;t ask for
-          card details anywhere in the app until real billing ships.
-        </p>
-      </Callout>
+      {!(stripeConfigured() && paidPlansReady()) && (
+        <Callout tone="quiet">
+          <h2 className="text-sm font-semibold">Checkout is warming up</h2>
+          <p className="mt-1 text-sm text-ink-soft">
+            Paid plans need a card. If this note is still here after a refresh,
+            Stripe isn&apos;t reaching this deploy yet.
+          </p>
+        </Callout>
+      )}
     </div>
   );
 }
