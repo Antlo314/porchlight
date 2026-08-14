@@ -22,7 +22,11 @@ export async function GET() {
     neighborhoods,
     authSecret: authSecretConfigured() ? "ok" : "missing",
     mail: mailConfigured() ? "ok" : "missing",
-    uploads: usingBlobStorage() ? "blob" : "disk",
+    uploads: usingBlobStorage()
+      ? process.env["BLOB_READ_WRITE_TOKEN"]?.trim()
+        ? "blob"
+        : "oidc"
+      : "disk",
     games: true,
   });
 }

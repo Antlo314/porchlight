@@ -13,13 +13,13 @@ export async function DesktopRail({
 
   return (
     <aside className="sticky top-20 hidden self-start space-y-3 lg:block">
-      <Card className="bg-porch-600 text-white shadow-glow">
-        <p className="text-sm font-semibold text-porch-100">Porch Credits</p>
+      <div className="surface-ink p-4">
+        <p className="text-sm font-semibold text-porch-200">Porch Credits</p>
         <p className="mt-1 flex items-center gap-2 font-display text-3xl font-semibold tabular-nums">
           <CoinIcon className="h-8 w-8" />
           {balance}
         </p>
-        <p className="mt-1 text-sm text-porch-100">
+        <p className="mt-1 text-sm text-porch-200">
           Earned on the block — never bought.
         </p>
         <Link
@@ -28,7 +28,7 @@ export async function DesktopRail({
         >
           Ledger →
         </Link>
-      </Card>
+      </div>
 
       <Card>
         <p className="font-display text-[15px] font-semibold">

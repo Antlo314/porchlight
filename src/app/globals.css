@@ -167,6 +167,14 @@ body::before {
   box-shadow: var(--shadow-lift);
 }
 
+.surface-ink {
+  background: var(--color-porch-800);
+  border: 1px solid var(--color-porch-900);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-glow);
+  color: var(--color-cream);
+}
+
 .glow-ring {
   box-shadow: var(--shadow-glow);
 }

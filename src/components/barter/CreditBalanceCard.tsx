@@ -18,7 +18,7 @@ export function CreditBalanceCard({
     <>
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-porch-100">
+          <p className="text-sm font-semibold text-porch-200">
             Your Porch Credits
           </p>
           <p className="flex items-center gap-2 font-display text-3xl font-semibold tabular-nums">
@@ -32,19 +32,19 @@ export function CreditBalanceCard({
           </span>
         )}
       </div>
-      <p className="mt-2 text-sm text-porch-100">{caption}</p>
+      <p className="mt-2 text-sm text-porch-200">{caption}</p>
     </>
   );
 
   const className =
-    "block rounded-card bg-porch-600 p-4 text-white shadow-glow";
+    "surface-ink block p-4";
 
   if (!href) return <div className={className}>{body}</div>;
 
   return (
     <Link
       href={href}
-      className={`${className} transition-transform duration-150 active:scale-[0.99] active:bg-porch-700`}
+      className={`${className} transition-transform duration-150 active:scale-[0.99]`}
     >
       {body}
     </Link>

@@ -90,8 +90,13 @@ function blobToken() {
   return process.env["BLOB_READ_WRITE_TOKEN"]?.trim() ?? "";
 }
 
+function blobStoreId() {
+  return process.env["BLOB_STORE_ID"]?.trim() ?? "";
+}
+
+/** Token on any host, or a connected store on Vercel (OIDC + store id). */
 export function usingBlobStorage(): boolean {
-  return Boolean(blobToken());
+  return Boolean(blobToken() || (process.env.VERCEL && blobStoreId()));
 }
 
 export async function storeImage(file: Blob): Promise<UploadResult> {
@@ -118,19 +123,18 @@ export async function storeImage(file: Blob): Promise<UploadResult> {
   // and it leaks whatever the uploader happened to call the file).
   const name = `${Date.now().toString(36)}-${randomBytes(8).toString("hex")}.${ext}`;
 
-  const token = blobToken();
-  if (token) {
+  if (usingBlobStorage()) {
     try {
       // Imported lazily so local development never loads the SDK.
       const { put } = await import("@vercel/blob");
-      // put() takes a Buffer/Blob/stream, not a bare Uint8Array.
+      // On Vercel a connected store authenticates with OIDC + BLOB_STORE_ID.
+      // A static token is only required off-Vercel or as a fallback.
+      const token = blobToken();
       const blob = await put(`porchlight/${name}`, Buffer.from(bytes), {
         access: "public",
         contentType: actualType,
-        token,
-        // Our name is already random; Vercel's suffix would only make the URL
-        // longer and harder to reason about.
         addRandomSuffix: false,
+        ...(token ? { token } : {}),
       });
       return { ok: true, url: blob.url };
     } catch (err) {
