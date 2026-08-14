@@ -7,8 +7,8 @@ function env(name: string) {
 
 /** Public Stripe Price ids — env wins, these keep checkout alive if env is blank. */
 const FALLBACK_PRICE: Record<"LOCAL_PRO" | "FEATURED", string> = {
-  LOCAL_PRO: "price_1U4CXWKC2ZARSJhow6oJ0AaT",
-  FEATURED: "price_1U4CZYKC2ZARSJhocX7PC7pX",
+  LOCAL_PRO: "price_1U4D7zKC2ZARSJhoQIXbxCSF",
+  FEATURED: "price_1U4D9UKC2ZARSJhojRfFkJP6",
 };
 
 function secret() {
