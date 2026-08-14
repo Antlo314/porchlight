@@ -210,7 +210,7 @@ export default async function PostDetailPage({
 
       <div>
         <SectionHeading
-          title={pluralize(post.comments.length, "comment")}
+          title={pluralize(post.comments.length, "reply")}
         />
         <CommentThread
           postId={post.id}

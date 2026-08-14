@@ -51,6 +51,18 @@ function sniff(bytes: Uint8Array): string | null {
   if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x38) {
     return "image/gif";
   }
+  // HEIC/HEIF (iPhone default) — ftyp....heic / heix / mif1
+  if (
+    b[4] === 0x66 &&
+    b[5] === 0x74 &&
+    b[6] === 0x79 &&
+    b[7] === 0x70
+  ) {
+    const brand = String.fromCharCode(b[8], b[9], b[10], b[11]);
+    if (["heic", "heix", "heif", "mif1"].includes(brand.toLowerCase())) {
+      return "image/heic";
+    }
+  }
   // RIFF....WEBP
   if (
     b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 &&
@@ -77,7 +89,7 @@ export function usingBlobStorage(): boolean {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 }
 
-export async function storeImage(file: File): Promise<UploadResult> {
+export async function storeImage(file: Blob): Promise<UploadResult> {
   if (file.size === 0) return { ok: false, error: "That file is empty." };
   if (file.size > MAX_UPLOAD_BYTES) {
     return { ok: false, error: "Images need to be under 6 MB." };
@@ -85,6 +97,13 @@ export async function storeImage(file: File): Promise<UploadResult> {
 
   const bytes = new Uint8Array(await file.arrayBuffer());
   const actualType = sniff(bytes);
+  if (actualType === "image/heic") {
+    return {
+      ok: false,
+      error:
+        "iPhone HEIC photos aren't supported yet. In the picker choose a JPG, or set Camera → Formats → Most Compatible.",
+    };
+  }
   if (!actualType || !ALLOWED.has(actualType)) {
     return { ok: false, error: "Only JPG, PNG, WebP, or GIF images work here." };
   }
@@ -107,8 +126,12 @@ export async function storeImage(file: File): Promise<UploadResult> {
         addRandomSuffix: false,
       });
       return { ok: true, url: blob.url };
-    } catch {
-      return { ok: false, error: "That upload didn't go through. Try again." };
+    } catch (err) {
+      console.error("blob put failed", err instanceof Error ? err.message : err);
+      return {
+        ok: false,
+        error: "Photo storage didn't accept that file. Try a smaller JPG or PNG.",
+      };
     }
   }
 

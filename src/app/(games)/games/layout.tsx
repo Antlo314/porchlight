@@ -37,7 +37,7 @@ export default async function GamesLayout({
           )}
         </div>
       </header>
-      <div className="mx-auto max-w-md px-4 pt-4">{children}</div>
+      <div className="mx-auto max-w-md px-4 pt-4 lg:max-w-2xl">{children}</div>
     </div>
   );
 }

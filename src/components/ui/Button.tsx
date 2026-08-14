@@ -86,7 +86,7 @@ export function Fab({
     <Link
       href={href}
       aria-label={label}
-      className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-[max(1rem,calc(50%-13rem))] z-40 flex h-14 w-14 items-center justify-center rounded-full bg-porch-600 text-2xl font-light text-white shadow-glow transition-transform duration-150 active:scale-95 active:bg-porch-700"
+      className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-[max(1rem,calc(50%-13rem))] z-40 flex h-14 w-14 items-center justify-center rounded-full bg-porch-600 text-2xl font-light text-white shadow-glow transition-transform duration-150 active:scale-95 active:bg-porch-700 lg:bottom-10 lg:right-[max(1.5rem,calc(50%-36rem+1.5rem))]"
     >
       {icon}
     </Link>

@@ -1,4 +1,5 @@
-import { Avatar, Badge, CardLink } from "@/components/ui";
+import Link from "next/link";
+import { Avatar, Badge, Card } from "@/components/ui";
 import { formatEventRange, timeAgo } from "@/lib/format";
 import { parseImages } from "@/lib/json";
 import { POST_TYPE_META, type PostTypeValue } from "@/lib/validators";
@@ -25,12 +26,19 @@ export function PostCard({ post }: { post: FeedPost }) {
   const images = parseImages(post.images);
 
   return (
-    <CardLink href={`/feed/${post.id}`} className="animate-fade-in">
+    <Card className="animate-fade-in">
       <div className="flex items-start gap-3">
-        <Avatar name={post.author.name} src={post.author.avatarUrl} />
+        <Link href={`/profile/${post.author.id}`} className="shrink-0">
+          <Avatar name={post.author.name} src={post.author.avatarUrl} />
+        </Link>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <span className="truncate font-semibold">{post.author.name}</span>
+            <Link
+              href={`/profile/${post.author.id}`}
+              className="truncate font-semibold hover:text-porch-700"
+            >
+              {post.author.name}
+            </Link>
             <span className="shrink-0 text-sm text-ink-soft">
               · {timeAgo(post.createdAt)}
             </span>
@@ -47,39 +55,55 @@ export function PostCard({ post }: { post: FeedPost }) {
         </div>
       </div>
 
-      {post.title && (
-        <h2 className="mt-3 font-display text-[1.15rem] font-semibold leading-snug">
-          {post.title}
-        </h2>
-      )}
+      <Link href={`/feed/${post.id}`} className="mt-3 block">
+        {post.title && (
+          <h2 className="font-display text-[1.15rem] font-semibold leading-snug">
+            {post.title}
+          </h2>
+        )}
 
-      {post.event && (
-        <p className="mt-1.5 text-sm font-semibold text-pine-600">
-          📅 {formatEventRange(post.event.startsAt, post.event.endsAt)}
-          <span className="block font-normal text-ink-soft">
-            📍 {post.event.location}
-          </span>
+        {post.event && (
+          <p className="mt-1.5 text-sm font-semibold text-pine-600">
+            📅 {formatEventRange(post.event.startsAt, post.event.endsAt)}
+            <span className="block font-normal text-ink-soft">
+              📍 {post.event.location}
+            </span>
+          </p>
+        )}
+
+        <p className="mt-1.5 line-clamp-4 whitespace-pre-wrap text-[15px] leading-relaxed">
+          {post.body}
         </p>
-      )}
 
-      <p className="mt-1.5 line-clamp-4 whitespace-pre-wrap text-[15px] leading-relaxed">
-        {post.body}
-      </p>
+        <PostImages images={images} />
+      </Link>
 
-      <PostImages images={images} />
-
-      <div className="mt-3 flex items-center gap-4 border-t border-line pt-2.5 text-sm text-ink-soft">
-        <span className="inline-flex items-center gap-1.5 tabular-nums">
+      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-2.5">
+        <Link
+          href={`/feed/${post.id}#comment-composer-input`}
+          className="inline-flex min-h-10 items-center gap-1.5 rounded-full px-3 text-sm font-semibold text-porch-800 hover:bg-porch-50"
+        >
+          Reply
+          {post._count.comments > 0 && (
+            <span className="tabular-nums text-ink-soft">
+              {post._count.comments}
+            </span>
+          )}
+        </Link>
+        <Link
+          href={`/feed/${post.id}`}
+          className="inline-flex min-h-10 items-center gap-1.5 rounded-full px-3 text-sm font-semibold text-ink-soft hover:bg-porch-50"
+        >
           <span aria-hidden>👍</span>
           {post._count.reactions}
-          <span className="sr-only">reactions</span>
-        </span>
-        <span className="inline-flex items-center gap-1.5 tabular-nums">
-          <span aria-hidden>💬</span>
-          {post._count.comments}
-          <span className="sr-only">comments</span>
-        </span>
+        </Link>
+        <Link
+          href={`/messages/new?to=${post.author.id}`}
+          className="inline-flex min-h-10 items-center gap-1.5 rounded-full px-3 text-sm font-semibold text-ink-soft hover:bg-porch-50"
+        >
+          Message
+        </Link>
       </div>
-    </CardLink>
+    </Card>
   );
 }

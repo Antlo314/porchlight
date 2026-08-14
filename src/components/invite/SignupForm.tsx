@@ -13,6 +13,7 @@ import {
   PasswordInput,
   Select,
   Skeleton,
+  CoinIcon,
 } from "@/components/ui";
 
 // Lives under components/invite because the invite flow is what made signup
@@ -170,8 +171,9 @@ export function SignupForm({
             Invited by {activeInvite.inviterName} — your neighborhood is set by
             their invite, so there&apos;s nothing to pick.
           </p>
-          <p className="mt-2 text-sm text-ink-soft">
-            🪙 {signupBonus} welcome credits + {inviteBonus} invite bonus.
+          <p className="mt-2 flex items-center gap-1.5 text-sm text-ink-soft">
+            <CoinIcon className="h-4 w-4" />
+            {signupBonus} welcome credits + {inviteBonus} invite bonus.
           </p>
         </div>
       )}

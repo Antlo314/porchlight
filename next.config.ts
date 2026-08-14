@@ -11,6 +11,7 @@ const nextConfig: NextConfig = {
       // Add image CDN hosts here when uploads are wired up (e.g. UploadThing, S3)
       { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "api.dicebear.com" },
+      { protocol: "https", hostname: "*.public.blob.vercel-storage.com" },
     ],
   },
 };

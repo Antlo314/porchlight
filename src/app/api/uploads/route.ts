@@ -34,12 +34,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Expected a file upload." }, { status: 400 });
   }
 
+  // Node / undici sometimes hands back Blob, not File. Treat any binary part
+  // as an upload so desktop and iOS pickers don't look "empty".
   const files = form
     .getAll("files")
-    .filter((entry): entry is File => entry instanceof File);
+    .filter((entry) => typeof entry !== "string")
+    .map((entry) => entry as Blob);
 
   if (files.length === 0) {
-    return NextResponse.json({ error: "No image selected." }, { status: 400 });
+    return NextResponse.json(
+      { error: "No image selected. Try a JPG or PNG under 6 MB." },
+      { status: 400 }
+    );
   }
   if (files.length > MAX_IMAGES_PER_POST) {
     return NextResponse.json(

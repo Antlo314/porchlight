@@ -126,12 +126,12 @@ export function CommentThread({
 
   return (
     <>
-      <div className="pb-28">
+      <div className="pb-28 lg:pb-0">
         {total === 0 ? (
           <EmptyState
             icon="💬"
-            title="No comments yet"
-            body="Be the first neighbor to say something."
+            title="No replies yet"
+            body="Be the first neighbor to answer. That's how the block stays alive."
           />
         ) : (
           <ul className="space-y-4">
@@ -181,7 +181,7 @@ export function CommentThread({
       {/* Composer sits directly above the tab bar, the way a chat input does. */}
       <form
         onSubmit={onSubmit}
-        className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 mx-auto max-w-md border-t border-line bg-cream/95 px-4 py-2 backdrop-blur"
+        className="fixed inset-x-0 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-30 mx-auto max-w-md border-t border-line bg-cream/95 px-4 py-2 backdrop-blur lg:static lg:z-0 lg:mx-0 lg:mt-6 lg:max-w-none lg:rounded-card lg:border lg:bg-card lg:px-3 lg:py-3"
       >
         {replyTo && (
           <div className="mb-1.5 flex items-center justify-between rounded-xl bg-porch-50 px-3 py-1.5 text-sm">
@@ -203,8 +203,8 @@ export function CommentThread({
             id={COMPOSER_INPUT_ID}
             value={body}
             onChange={(e) => setBody(e.target.value.slice(0, MAX_BODY))}
-            placeholder={replyTo ? "Write a reply…" : "Add a comment…"}
-            aria-label="Comment"
+            placeholder={replyTo ? `Reply to ${replyTo.name}…` : "Write a reply…"}
+            aria-label="Reply"
             enterKeyHint="send"
           />
           {body.length > MAX_BODY - 200 && (

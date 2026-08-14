@@ -2,7 +2,7 @@ import LogoutButton from "@/components/LogoutButton";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { ProfileLinkRow } from "@/components/profile/ProfileLinkRow";
 import { StatTile } from "@/components/profile/StatTile";
-import { Badge, ButtonLink, Card, SectionHeading } from "@/components/ui";
+import { Badge, ButtonLink, Card, CoinIcon, SectionHeading } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { creditBalance } from "@/lib/credits";
 import { db } from "@/lib/db";
@@ -91,7 +91,7 @@ export default async function ProfilePage() {
 
       <div className="grid grid-cols-2 gap-3">
         <StatTile
-          icon="🪙"
+          iconNode={<CoinIcon className="h-6 w-6" />}
           value={balance}
           label="Porch Credits"
           href="/barter/credits"

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CoinIcon } from "@/components/ui";
 
 /**
  * The Porch Credits header. Tapping it opens the ledger — the balance is
@@ -20,8 +21,8 @@ export function CreditBalanceCard({
           <p className="text-sm font-semibold text-porch-100">
             Your Porch Credits
           </p>
-          <p className="font-display text-3xl font-semibold tabular-nums">
-            <span aria-hidden>🪙 </span>
+          <p className="flex items-center gap-2 font-display text-3xl font-semibold tabular-nums">
+            <CoinIcon className="h-8 w-8" />
             {balance}
           </p>
         </div>

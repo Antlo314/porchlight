@@ -13,7 +13,7 @@ export function ImageUploader({
   onChange,
   max = 6,
   label = "Photos",
-  hint = "Up to 6. JPG, PNG, WebP, or GIF, 6 MB each.",
+  hint = "Up to 6. JPG, PNG, WebP, or GIF, 6 MB each. iPhone: pick Most Compatible, not HEIC.",
 }: {
   images: string[];
   onChange: (images: string[]) => void;
@@ -96,7 +96,7 @@ export function ImageUploader({
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif"
+        accept="image/jpeg,image/png,image/webp,image/gif,image/*"
         multiple
         className="hidden"
         onChange={(e) => handleFiles(e.target.files)}

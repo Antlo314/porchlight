@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { mailConfigured } from "@/lib/mail";
 import { authSecretConfigured } from "@/lib/session";
+import { usingBlobStorage } from "@/lib/uploads";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,7 @@ export async function GET() {
     neighborhoods,
     authSecret: authSecretConfigured() ? "ok" : "missing",
     mail: mailConfigured() ? "ok" : "missing",
+    uploads: usingBlobStorage() ? "blob" : "disk",
     games: true,
   });
 }

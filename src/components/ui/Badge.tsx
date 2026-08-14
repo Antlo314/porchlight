@@ -1,3 +1,5 @@
+import { CoinIcon } from "./CoinIcon";
+
 export function Badge({
   children,
   className = "bg-line text-ink-soft",
@@ -25,7 +27,7 @@ export function CreditPill({
     <span
       className={`inline-flex shrink-0 items-center gap-1 rounded-full bg-porch-100 px-2.5 py-0.5 text-sm font-bold tabular-nums text-porch-800 ${className}`}
     >
-      <span aria-hidden>🪙</span>
+      <CoinIcon className="h-4 w-4" />
       <span className="font-display">{amount}</span>
     </span>
   );

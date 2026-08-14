@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Card, CardLink } from "@/components/ui";
 
 /**
@@ -6,20 +7,22 @@ import { Card, CardLink } from "@/components/ui";
  */
 export function StatTile({
   icon,
+  iconNode,
   value,
   label,
   href,
 }: {
-  icon: string;
+  icon?: string;
+  iconNode?: ReactNode;
   value: number | string;
   label: string;
   href?: string;
 }) {
   const inner = (
     <div className="text-center">
-      <p className="text-lg leading-none" aria-hidden>
-        {icon}
-      </p>
+      <div className="flex justify-center text-lg leading-none" aria-hidden>
+        {iconNode ?? icon}
+      </div>
       <p className="mt-1.5 text-xl font-bold leading-none tabular-nums">
         {value}
       </p>

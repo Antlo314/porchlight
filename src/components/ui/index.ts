@@ -13,3 +13,4 @@ export { ToastProvider, useToast } from "./Toast";
 export { ImageUploader, SingleImageUploader } from "./ImageUploader";
 export { BrandMark, LanternMark } from "./BrandMark";
 export { Icon, type IconName } from "./Icon";
+export { CoinIcon } from "./CoinIcon";
