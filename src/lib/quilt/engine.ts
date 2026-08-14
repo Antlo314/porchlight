@@ -41,6 +41,7 @@ function runKind(tiles: Tile[]): "color" | "shape" | "true" | null {
   return null;
 }
 
+/** Contiguous runs of 3+ same color, and 3+ same shape. 4 and 5 count. */
 export function findMatches(board: (Tile | null)[][]) {
   const marked = new Set<string>();
   let trueMatches = 0;
@@ -50,7 +51,7 @@ export function findMatches(board: (Tile | null)[][]) {
     const tiles = cells
       .map((p) => board[p.r]![p.c])
       .filter((t): t is Tile => Boolean(t));
-    if (tiles.length !== cells.length) return;
+    if (tiles.length !== cells.length || tiles.length < 3) return;
     const kind = runKind(tiles);
     if (!kind) return;
     groups.push({ cells, kind });
@@ -58,21 +59,29 @@ export function findMatches(board: (Tile | null)[][]) {
     for (const p of cells) marked.add(`${p.r},${p.c}`);
   };
 
-  const scanLine = (cells: Cell[]) => {
+  const scanAttr = (cells: Cell[], attr: (t: Tile) => string) => {
     let i = 0;
     while (i < cells.length) {
-      let best = i + 1;
-      for (let j = cells.length; j - i >= 3; j--) {
-        const slice = cells.slice(i, j);
-        const tiles = slice.map((p) => board[p.r]![p.c]).filter((t): t is Tile => Boolean(t));
-        if (tiles.length === slice.length && runKind(tiles)) {
-          consider(slice);
-          best = j;
-          break;
-        }
+      const start = board[cells[i]!.r]![cells[i]!.c];
+      if (!start) {
+        i += 1;
+        continue;
       }
-      i = best > i + 1 ? best : i + 1;
+      const key = attr(start);
+      let j = i + 1;
+      while (j < cells.length) {
+        const t = board[cells[j]!.r]![cells[j]!.c];
+        if (!t || attr(t) !== key) break;
+        j += 1;
+      }
+      if (j - i >= 3) consider(cells.slice(i, j));
+      i = j;
     }
+  };
+
+  const scanLine = (cells: Cell[]) => {
+    scanAttr(cells, (t) => t.color);
+    scanAttr(cells, (t) => t.shape);
   };
 
   for (let r = 0; r < BOARD_SIZE; r++) {

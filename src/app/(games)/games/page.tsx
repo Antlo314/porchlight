@@ -4,7 +4,7 @@ import { loadQuiltHub } from "./actions";
 
 export const metadata = {
   title: "Games",
-  description: "Ember's Quilt — match color or shape, light the block, win the week.",
+  description: "Ember's Quilt — match color or shape, light the porches, win the week.",
   openGraph: {
     title: "Ember's Quilt",
     description: "Match three. Stitch the quilt. 1st–3rd win Porch Credits each week.",
@@ -18,7 +18,12 @@ export default async function GamesPage() {
 
   return (
     <div className="pb-10">
-      <GamesHub demo={!user} weekKey={hub.weekKey} board={hub.board} />
+      <GamesHub
+        demo={!user}
+        weekKey={hub.weekKey}
+        board={hub.board}
+        cleared={hub.cleared}
+      />
     </div>
   );
 }

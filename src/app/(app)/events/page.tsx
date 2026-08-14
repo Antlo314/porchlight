@@ -90,7 +90,7 @@ export default async function EventsPage() {
           icon="📅"
           imageSrc="/images/empty/empty-events.jpg"
           title="Nothing on the calendar"
-          body={`No upcoming events in ${user.neighborhood.name} yet. A block party, a yard sale, a stroller walk — post the first one.`}
+          body={`No upcoming events in ${user.neighborhood.name} yet. A porch party, a yard sale, a stroller walk — post the first one.`}
           actionLabel="Create an event"
           actionHref="/feed/new?type=EVENT"
         />

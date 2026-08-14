@@ -5,7 +5,7 @@ import { getSession } from "@/lib/session";
 
 const FEATURES = [
   {
-    title: "Barter on the block",
+    title: "Barter with neighbors",
     body: "Goods, skills, and time — paid in Porch Credits you earn, never buy.",
   },
   {
@@ -48,7 +48,7 @@ export default async function LandingPage() {
             Georgia neighborhoods
           </p>
           <h1 className="mt-2 font-display text-[2.15rem] font-semibold leading-[1.12] tracking-tight lg:text-5xl">
-            Your block, together.
+            Your neighborhood, together.
           </h1>
           <p className="mt-3 text-[16px] leading-relaxed text-ink-soft">
             News, trades, local pros, and neighbors you can actually reach.

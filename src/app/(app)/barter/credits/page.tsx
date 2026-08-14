@@ -81,8 +81,8 @@ export default async function CreditsPage() {
             the same.
           </li>
           <li>
-            <span aria-hidden>🏮</span> Light the Block pays a small daily
-            drip — never more than 5 credits in a day.
+            <span aria-hidden>🏮</span> Playing games earns about 10 credits
+            an hour. No daily wall — just a neighborly pace.
           </li>
           <li>
             <span aria-hidden>🚫</span> They can&apos;t be bought and they
@@ -101,7 +101,7 @@ export default async function CreditsPage() {
             href="/games"
             className="inline-flex min-h-11 items-center text-sm font-semibold text-porch-700"
           >
-            Play Light the Block →
+            Play games →
           </Link>
         </div>
       </Card>

@@ -261,6 +261,12 @@ body::before {
 }
 
 .quilt-selected {
+  z-index: 10;
+  outline: 3px solid var(--color-porch-400);
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 4px rgb(230 154 65 / 0.55),
+    0 0 22px rgb(230 154 65 / 0.9) !important;
   animation: quilt-glow 1s ease-in-out infinite;
 }
 

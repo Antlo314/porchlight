@@ -64,7 +64,7 @@ export function JoinScreen({
                 <span className="text-ink-soft">, {invite.city}</span>
               </h1>
               <p className="mt-3 text-[15px] text-ink-soft">
-                Porchlight is where your block keeps up with each other — what
+                Porchlight is where your neighborhood keeps up with each other — what
                 happened on the street, who needs a hand, and which local pro
                 actually showed up on time.
               </p>
@@ -97,7 +97,7 @@ export function JoinScreen({
               <ul className="mt-5 space-y-2.5 text-[15px] text-ink-soft">
                 <li>🤝 Barter goods, skills, and time with Porch Credits</li>
                 <li>🛠️ Local pros listed free — no pay-to-be-seen</li>
-                <li>💬 Real chats and DMs, built for your block</li>
+                <li>💬 Real chats and DMs, built for your neighborhood</li>
               </ul>
             </>
           ) : (
@@ -128,7 +128,7 @@ export function JoinScreen({
               <ul className="mt-5 space-y-2.5 text-[15px] text-ink-soft">
                 <li>🤝 Barter goods, skills, and time with Porch Credits</li>
                 <li>🛠️ Local pros listed free — no pay-to-be-seen</li>
-                <li>💬 Real chats and DMs, built for your block</li>
+                <li>💬 Real chats and DMs, built for your neighborhood</li>
               </ul>
             </>
           )}

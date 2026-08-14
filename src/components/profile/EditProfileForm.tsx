@@ -97,7 +97,7 @@ export function EditProfileForm({
           value={bio}
           maxLength={BIO_MAX}
           onChange={(e) => setBio(e.target.value)}
-          placeholder="Grew up off Moreland, keeper of the block's ladder collection. Happy to water plants."
+          placeholder="Grew up off Moreland, keeper of the street's ladder collection. Happy to water plants."
         />
         <div className="flex justify-end">
           <CharCount value={bio} max={BIO_MAX} />

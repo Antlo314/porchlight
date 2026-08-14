@@ -22,6 +22,7 @@ import {
 } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { ensureServiceListingCredits } from "@/lib/services/ensure";
 import { parseImages } from "@/lib/json";
 import { BUSINESS_CATEGORY_META, PLAN_META } from "@/lib/validators";
 
@@ -36,6 +37,7 @@ function formatPeriodEnd(date: Date): string {
 export default async function ManageBusinessPage() {
   const user = await requireUser();
   const now = new Date();
+  await ensureServiceListingCredits();
 
   const business = await db.business.findFirst({
     where: { ownerId: user.id },
@@ -74,6 +76,9 @@ export default async function ManageBusinessPage() {
     title: s.title,
     description: s.description,
     priceInfo: s.priceInfo,
+    acceptsCredits: Boolean(
+      (s as { acceptsCredits?: boolean }).acceptsCredits
+    ),
     status: toListingStatus(s.status),
     images: parseImages(s.images),
   }));

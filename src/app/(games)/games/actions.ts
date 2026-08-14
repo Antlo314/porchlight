@@ -2,14 +2,18 @@
 
 import { currentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { gameCreditUsage, grantGameReward } from "@/lib/games/economy";
+import {
+  gameCreditUsage,
+  grantGameReward,
+  grantHourlyPlayCredits,
+} from "@/lib/games/economy";
 import { ensureGameRunTable } from "@/lib/games/ensure";
 import { dailySeed, getLevel } from "@/lib/games/levels";
 import { parseEvents, validateRun } from "@/lib/games/scoring";
 import { issueTicket, mintNonce, readTicket, TICKET_TTL_MS } from "@/lib/games/session";
 import { GAME_ID, isLevelId, RUN_STATUS } from "@/lib/games/types";
 import { goalsMet, parseMoves, replay } from "@/lib/quilt/engine";
-import { isNightId } from "@/lib/quilt/nights";
+import { isNightId, STORY_NIGHTS } from "@/lib/quilt/nights";
 import { atlantaWeekKey } from "@/lib/quilt/week";
 import { recordWeeklyScore, settleLastWeek, weekLeaderboard } from "@/lib/quilt/weekly";
 
@@ -268,6 +272,8 @@ export async function startQuiltAction(nightId: string) {
     return { ok: false as const, error: "That night isn't on the quilt." };
   }
   const user = await currentUser().catch(() => null);
+  const lock = await quiltLock(user?.id ?? null, nightId);
+  if (lock) return { ok: false as const, error: lock };
   const seed =
     nightId === "weekly"
       ? `weekly:${atlantaWeekKey()}:${user?.neighborhoodId ?? "atl"}`
@@ -337,7 +343,29 @@ export async function submitQuiltAction(input: {
   }
 
   const user = await currentUser().catch(() => null);
+  const won = goalsMet(final);
   if (user && ticket.userId === user.id) {
+    try {
+      await ensureGameRunTable();
+      await db.gameRun.updateMany({
+        where: { id: ticket.runId, userId: user.id },
+        data: {
+          submittedAt: new Date(),
+          score: final.score,
+          finished: won,
+          status: RUN_STATUS.AWARDED,
+        },
+      });
+    } catch {
+      /* table may still be coming up */
+    }
+    if (won) {
+      await grantHourlyPlayCredits({
+        userId: user.id,
+        runId: ticket.runId,
+        amount: 3,
+      }).catch(() => 0);
+    }
     try {
       await recordWeeklyScore(user.id, final.score);
     } catch {
@@ -348,10 +376,43 @@ export async function submitQuiltAction(input: {
   return {
     ok: true as const,
     score: final.score,
-    won: goalsMet(final),
+    won,
     demo: !user,
     movesLeft: final.movesLeft,
   };
+}
+
+async function clearedStoryNights(userId: string): Promise<string[]> {
+  await ensureGameRunTable();
+  const rows = await db.gameRun.findMany({
+    where: {
+      userId,
+      game: QUILT_GAME,
+      finished: true,
+      levelId: { in: STORY_NIGHTS.map((n) => n.id) },
+    },
+    select: { levelId: true },
+  });
+  return [...new Set(rows.map((r) => r.levelId))];
+}
+
+async function quiltLock(userId: string | null, nightId: string) {
+  if (nightId === "night-0") return null;
+  if (!userId) {
+    return "Log in to play later nights. Night 0 is open as a guest.";
+  }
+  const cleared = await clearedStoryNights(userId).catch(() => [] as string[]);
+  if (nightId === "weekly") {
+    return cleared.includes("night-0")
+      ? null
+      : "Finish Night 0 with Ember first, then this week's porch opens.";
+  }
+  const storyIndex = STORY_NIGHTS.findIndex((n) => n.id === nightId);
+  if (storyIndex <= 0) return null;
+  const prev = STORY_NIGHTS[storyIndex - 1]!;
+  return cleared.includes(prev.id)
+    ? null
+    : `Finish ${prev.title} first. Nights unlock in order.`;
 }
 
 export async function loadQuiltHub() {
@@ -360,10 +421,14 @@ export async function loadQuiltHub() {
   } catch {
     /* first load without tables */
   }
+  const user = await currentUser().catch(() => null);
+  const cleared = user
+    ? await clearedStoryNights(user.id).catch(() => [] as string[])
+    : [];
   try {
     const board = await weekLeaderboard();
-    return { weekKey: atlantaWeekKey(), board };
+    return { weekKey: atlantaWeekKey(), board, cleared };
   } catch {
-    return { weekKey: atlantaWeekKey(), board: [] };
+    return { weekKey: atlantaWeekKey(), board: [], cleared };
   }
 }

@@ -9,9 +9,12 @@ import { creditsForRun } from "./scoring";
 import { GAME_ID, RUN_STATUS, type LevelId } from "./types";
 
 export const GAME_REWARD = "GAME_REWARD";
-export const DAILY_CAP = 5;
-export const LIFETIME_CAP = 150;
-export const COOLDOWN_MS = 90_000;
+/** Soft pace: about 10 credits per rolling hour. Not a lifetime or daily wall. */
+export const HOURLY_TARGET = 10;
+export const HOURLY_MS = 60 * 60 * 1000;
+export const DAILY_CAP = 10_000;
+export const LIFETIME_CAP = 10_000;
+export const COOLDOWN_MS = 0;
 export const FIRST_KIRKWOOD_BONUS = 3;
 
 export function windowStart(at = new Date()): Date {
@@ -54,8 +57,8 @@ export async function gameCreditUsage(userId: string, at = new Date()) {
   return {
     lifetime,
     today,
-    remainingToday: Math.max(0, DAILY_CAP - today),
-    remainingLifetime: Math.max(0, LIFETIME_CAP - lifetime),
+    remainingToday: Math.max(0, HOURLY_TARGET - today),
+    remainingLifetime: HOURLY_TARGET,
     lastAwardedAt: lastAward?.submittedAt ?? null,
   };
 }
@@ -130,8 +133,19 @@ export async function grantGameReward(input: GrantInput): Promise<GrantResult> {
 
     const lifetime = lifetimeAgg._sum.delta ?? 0;
     const today = recentAgg._sum.delta ?? 0;
-    const remainingToday = Math.max(0, DAILY_CAP - today);
-    const remainingLifetime = Math.max(0, LIFETIME_CAP - lifetime);
+    const hourAgo = new Date(Date.now() - HOURLY_MS);
+    const hourAgg = await tx.tradeCreditEntry.aggregate({
+      where: {
+        userId: input.userId,
+        reason: GAME_REWARD,
+        delta: { gt: 0 },
+        createdAt: { gte: hourAgo },
+      },
+      _sum: { delta: true },
+    });
+    const hourTotal = hourAgg._sum.delta ?? 0;
+    const remainingToday = Math.max(0, HOURLY_TARGET - hourTotal);
+    const remainingLifetime = remainingToday;
 
     let payout = creditsForRun({
       score: input.score,
@@ -161,29 +175,10 @@ export async function grantGameReward(input: GrantInput): Promise<GrantResult> {
         where: { id: input.runId },
         data: { creditsAwarded: 0, status: RUN_STATUS.AWARDED },
       });
-      return empty("DAILY_CAP", 0);
+      return empty("COOLDOWN", 0);
     }
 
-    if (remainingLifetime <= 0) {
-      await tx.gameRun.update({
-        where: { id: input.runId },
-        data: { creditsAwarded: 0, status: RUN_STATUS.AWARDED },
-      });
-      return empty("LIFETIME_CAP", remainingToday);
-    }
-
-    if (lastAward?.submittedAt) {
-      const elapsed = Date.now() - lastAward.submittedAt.getTime();
-      if (elapsed < COOLDOWN_MS) {
-        await tx.gameRun.update({
-          where: { id: input.runId },
-          data: { creditsAwarded: 0, status: RUN_STATUS.AWARDED },
-        });
-        return empty("COOLDOWN", remainingToday);
-      }
-    }
-
-    const credits = Math.min(payout, remainingToday, remainingLifetime);
+    const credits = Math.min(payout, remainingToday);
 
     await tx.tradeCreditEntry.create({
       data: {
@@ -206,12 +201,44 @@ export async function grantGameReward(input: GrantInput): Promise<GrantResult> {
       type: "SYSTEM",
       payload: {
         href: "/barter/credits",
-        text: `You earned ${result.credits} Porch Credit${result.credits === 1 ? "" : "s"} on Light the Block.`,
+        text: `You earned ${result.credits} Porch Credit${result.credits === 1 ? "" : "s"} playing games.`,
       },
     });
   }
 
   return result;
+}
+
+export async function grantHourlyPlayCredits(opts: {
+  userId: string;
+  runId: string;
+  amount: number;
+}): Promise<number> {
+  if (opts.amount <= 0) return 0;
+  await ensureGameRunTable();
+  const hourAgo = new Date(Date.now() - HOURLY_MS);
+  const hourAgg = await db.tradeCreditEntry.aggregate({
+    where: {
+      userId: opts.userId,
+      reason: GAME_REWARD,
+      delta: { gt: 0 },
+      createdAt: { gte: hourAgo },
+    },
+    _sum: { delta: true },
+  });
+  const room = Math.max(0, HOURLY_TARGET - (hourAgg._sum.delta ?? 0));
+  const credits = Math.min(opts.amount, room);
+  if (credits <= 0) return 0;
+  await db.tradeCreditEntry.create({
+    data: { userId: opts.userId, delta: credits, reason: GAME_REWARD },
+  });
+  await db.gameRun
+    .update({
+      where: { id: opts.runId },
+      data: { creditsAwarded: credits, status: RUN_STATUS.AWARDED },
+    })
+    .catch(() => undefined);
+  return credits;
 }
 
 export { GAME_ID };

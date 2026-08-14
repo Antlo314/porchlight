@@ -12,7 +12,7 @@ import {
   swap,
   type SwapResult,
 } from "@/lib/quilt/engine";
-import { getNight } from "@/lib/quilt/nights";
+import { getNight, nextStoryNight } from "@/lib/quilt/nights";
 import { playSfx, startLoop, stopLoop } from "@/lib/quilt/audio";
 import { EmberSprite } from "@/components/quilt/EmberSprite";
 import { TileView } from "@/components/quilt/Tile";
@@ -81,7 +81,7 @@ export function QuiltPlay({
       window.setTimeout(() => setShake(null), 240);
       speak(
         res.reason === "no-match"
-          ? "That swap doesn't stitch. Need three of a color or a shape."
+          ? "That swap doesn't stitch. Need three or more of a color or a shape, in a straight line."
           : "That one won't go."
       );
       return;
@@ -217,8 +217,8 @@ export function QuiltPlay({
                   {[
                     "Tap one tile. It will light up. That's your pick.",
                     "Tap a tile next to it — up, down, left, or right. They swap.",
-                    "Three in a line of the same COLOR or the same SHAPE will glow and vanish.",
-                    "Same color AND same shape is a true stitch. Finish my card before moves run out. Then try This week's block to rank.",
+                    "Three or more in a line of the same COLOR or the same SHAPE will glow and vanish.",
+                    "Same color AND same shape is a true stitch. Finish my card before moves run out. Then try this week's porch to rank.",
                   ][lesson]}
                 </p>
               </div>
@@ -245,21 +245,34 @@ export function QuiltPlay({
           <p className="mt-1 text-sm text-ink-soft">
             {state.score} glow{pending ? " · saving…" : ""}
           </p>
-          <div className="mt-3 flex gap-2">
-            <button
-              type="button"
-              className="min-h-11 flex-1 rounded-card bg-porch-600 font-semibold text-white"
-              onClick={() => window.location.reload()}
-            >
-              Play again
-            </button>
-            <button
-              type="button"
-              className="min-h-11 flex-1 rounded-card border border-line bg-card font-semibold"
-              onClick={() => router.push("/games")}
-            >
-              Hub
-            </button>
+          <div className="mt-3 flex flex-col gap-2">
+            {over === "won" && nextStoryNight(nightId) && (
+              <button
+                type="button"
+                className="min-h-11 w-full rounded-card bg-porch-600 font-semibold text-white"
+                onClick={() =>
+                  router.push(`/games/quilt?night=${nextStoryNight(nightId)}`)
+                }
+              >
+                Next night →
+              </button>
+            )}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="min-h-11 flex-1 rounded-card bg-porch-600 font-semibold text-white"
+                onClick={() => window.location.reload()}
+              >
+                Play again
+              </button>
+              <button
+                type="button"
+                className="min-h-11 flex-1 rounded-card border border-line bg-card font-semibold"
+                onClick={() => router.push("/games")}
+              >
+                Hub
+              </button>
+            </div>
           </div>
         </div>
       )}

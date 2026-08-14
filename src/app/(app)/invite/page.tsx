@@ -166,7 +166,7 @@ export default async function InvitePage() {
         <EmptyState
           icon="🏡"
           title="No one yet"
-          body="Send your link to one neighbor today. The first few are what make a block feel alive."
+          body="Send your link to one neighbor today. The first few are what make a neighborhood feel alive."
         />
       ) : (
         <Card>

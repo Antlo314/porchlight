@@ -33,6 +33,7 @@ export type ServiceListingRow = {
   title: string;
   description: string;
   priceInfo: string | null;
+  acceptsCredits: boolean;
   status: "ACTIVE" | "PAUSED";
   /** Already parsed out of the JSON column via `parseImages`. */
   images: string[];

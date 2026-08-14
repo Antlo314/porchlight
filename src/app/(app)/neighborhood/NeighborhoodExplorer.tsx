@@ -63,7 +63,7 @@ export function NeighborhoodExplorer({
     return (
       <EmptyState
         icon="🗺️"
-        title="Yours is the only block so far"
+        title="Yours is the only neighborhood so far"
         body="Porchlight is still lighting up Georgia. More neighborhoods land here as they open."
       />
     );

@@ -260,7 +260,7 @@ export function SignupForm({
             )}
             {hoodStatus === "empty" && (
               <p className="mt-2 text-sm text-ink-soft">
-                The block list hasn&apos;t been seeded yet. Run{" "}
+                The neighborhood list hasn&apos;t been seeded yet. Run{" "}
                 <code className="rounded bg-line px-1">npm run db:seed</code>{" "}
                 against your Neon database.
               </p>

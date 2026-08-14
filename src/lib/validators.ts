@@ -46,7 +46,7 @@ export const POST_TYPE_META: Record<
   SAFETY: {
     label: "Safety",
     icon: "🚨",
-    hint: "Alert the block",
+    hint: "Alert the neighborhood",
     badgeClass: "bg-red-100 text-red-800",
   },
   EVENT: {
@@ -374,6 +374,7 @@ export const createServiceListingSchema = z.object({
   title: z.string().trim().min(3).max(100),
   description: z.string().trim().min(1).max(2000),
   priceInfo: z.string().trim().max(60).optional().or(z.literal("")),
+  acceptsCredits: z.boolean().optional(),
   images: imageListSchema,
 });
 

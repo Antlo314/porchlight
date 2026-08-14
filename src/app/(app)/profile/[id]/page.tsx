@@ -198,7 +198,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
         <EmptyState
           icon="🧺"
           title="No open listings"
-          body={`${firstName(person.name)} doesn't have anything up for trade right now. Browse what the rest of the block is offering.`}
+          body={`${firstName(person.name)} doesn't have anything up for trade right now. Browse what the rest of the neighborhood is offering.`}
           actionLabel="Browse barter"
           actionHref="/barter"
         />

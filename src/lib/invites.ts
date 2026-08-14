@@ -195,7 +195,7 @@ export async function awardInviteBonus(opts: {
                 // Still say someone joined: the invite worked, only the bonus
                 // is capped. Silence would read as the feature being broken.
                 href: "/invite",
-                text: "A neighbor joined with your invite. You've hit the bonus cap for now, but keep sharing — the block is growing.",
+                text: "A neighbor joined with your invite. You've hit the bonus cap for now, but keep sharing — the neighborhood is growing.",
               }
         ),
       },

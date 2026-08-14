@@ -11,6 +11,7 @@ import {
   createServiceListingSchema,
 } from "@/lib/validators";
 import { toPlan, type ActionResult } from "@/components/business/types";
+import { ensureServiceListingCredits } from "@/lib/services/ensure";
 
 function firstError(error: z.ZodError): string {
   return error.issues[0]?.message ?? "Please check the form and try again.";
@@ -127,14 +128,16 @@ export async function createServiceListing(
     }
   }
 
-  const { title, description, priceInfo, images } = parsed.data;
+  const { title, description, priceInfo, acceptsCredits, images } = parsed.data;
 
+  await ensureServiceListingCredits();
   await db.serviceListing.create({
     data: {
       businessId: business.id,
       title,
       description,
       priceInfo: priceInfo ? priceInfo : null,
+      acceptsCredits: Boolean(acceptsCredits),
       images: serializeImages(images),
       status: "ACTIVE",
     },
@@ -154,16 +157,19 @@ export async function updateServiceListing(
   const parsed = updateServiceListingSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
 
-  const { listingId, title, description, priceInfo, images } = parsed.data;
+  const { listingId, title, description, priceInfo, acceptsCredits, images } =
+    parsed.data;
   const listing = await ownedListing(user.id, listingId);
   if (!listing) return { ok: false, error: "That listing isn't yours." };
 
+  await ensureServiceListingCredits();
   await db.serviceListing.update({
     where: { id: listing.id },
     data: {
       title,
       description,
       priceInfo: priceInfo ? priceInfo : null,
+      acceptsCredits: Boolean(acceptsCredits),
       images: serializeImages(images),
     },
   });

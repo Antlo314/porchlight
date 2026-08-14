@@ -40,7 +40,7 @@ export function TileView({
       style={{
         background: `radial-gradient(circle at 30% 25%, color-mix(in srgb, ${hex} 78%, white), ${hex})`,
         boxShadow: selected
-          ? `0 0 0 2px var(--color-cream), inset 0 -3px 0 rgb(0 0 0 / 0.18)`
+          ? undefined
           : `inset 0 -3px 0 rgb(0 0 0 / 0.18), inset 0 2px 0 rgb(255 255 255 / 0.18)`,
         animationDelay: selected || shaking || popping || dropping ? undefined : `${delay}ms`,
       }}

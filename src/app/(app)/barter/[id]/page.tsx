@@ -234,7 +234,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
             <p className="mt-1 text-sm text-ink-soft">
               {listing.status === "PENDING"
                 ? `${listing.owner.name} is mid-trade on this one. Check back if it reopens.`
-                : "This listing is closed, but there's plenty more on the block."}
+                : "This listing is closed, but there's plenty more nearby."}
             </p>
             <ButtonLink href="/barter" variant="secondary" size="md" className="mt-3">
               Browse other trades

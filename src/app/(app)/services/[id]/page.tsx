@@ -22,6 +22,7 @@ import {
 } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { ensureServiceListingCredits } from "@/lib/services/ensure";
 import { pluralize, timeAgo } from "@/lib/format";
 import { parseImages } from "@/lib/json";
 import { BUSINESS_CATEGORY_META } from "@/lib/validators";
@@ -33,6 +34,7 @@ export default async function BusinessDetailPage({
 }) {
   const user = await requireUser();
   const { id } = await params;
+  await ensureServiceListingCredits();
   const now = new Date();
 
   const business = await db.business.findUnique({
@@ -179,11 +181,18 @@ export default async function BusinessDetailPage({
                 <Card key={service.id}>
                   <div className="flex items-start justify-between gap-3">
                     <h3 className="font-semibold">{service.title}</h3>
-                    {service.priceInfo && (
-                      <Badge className="bg-porch-100 text-porch-800">
-                        {service.priceInfo}
-                      </Badge>
-                    )}
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      {service.priceInfo && (
+                        <Badge className="bg-porch-100 text-porch-800">
+                          {service.priceInfo}
+                        </Badge>
+                      )}
+                      {service.acceptsCredits && (
+                        <Badge className="bg-pine-500/10 text-pine-700">
+                          Takes Porch Credits
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-ink-soft">
                     {service.description}

@@ -20,7 +20,7 @@ export async function DesktopRail({
           {balance}
         </p>
         <p className="mt-1 text-sm text-porch-200">
-          Earned on the block — never bought.
+          Earned from neighbors — never bought.
         </p>
         <Link
           href="/barter/credits"

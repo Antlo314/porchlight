@@ -188,7 +188,7 @@ export default async function ProfilePage() {
         </li>
       </ul>
 
-      <SectionHeading title="Grow the block" />
+      <SectionHeading title="Grow the neighborhood" />
       <ul className="space-y-2">
         <li>
           <ProfileLinkRow

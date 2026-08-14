@@ -39,7 +39,7 @@ export default async function MyPostsPage() {
         <h1 className="text-xl font-bold">My posts</h1>
         {rows.length > 0 && (
           <p className="mt-1 text-sm text-ink-soft">
-            {pluralize(rows.length, "post")} on the block
+            {pluralize(rows.length, "post")}
           </p>
         )}
       </div>

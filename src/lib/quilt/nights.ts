@@ -4,8 +4,8 @@ export const NIGHTS: Night[] = [
   {
     id: "night-0",
     title: "Ember wakes",
-    blurb: "Learn the stitch. Color or shape — three in a line.",
-    ember: "I'm Ember. The porches went dark. Tap a tile, then tap a neighbor to swap. Three of a color *or* a shape will glow.",
+    blurb: "Learn the stitch. Color or shape — three or more in a line.",
+    ember: "I'm Ember. The porches went dark. Tap a tile, then tap a neighbor to swap. Three or more of a color *or* a shape will glow.",
     moves: 18,
     goals: [{ kind: "matches", n: 4 }],
   },
@@ -13,7 +13,7 @@ export const NIGHTS: Night[] = [
     id: "night-1",
     title: "The tutor's stoop",
     blurb: "Amber first. Warm the tutor's lamp.",
-    ember: "Amber tiles are my fire. Line up three amber — shape doesn't have to match.",
+    ember: "Amber tiles are my fire. Line up three or more amber — shape doesn't have to match.",
     moves: 20,
     goals: [{ kind: "color", color: "amber", n: 10 }],
   },
@@ -21,7 +21,7 @@ export const NIGHTS: Night[] = [
     id: "night-2",
     title: "The gardener's rail",
     blurb: "Leaves for the gardener who shares starts.",
-    ember: "Same shape counts too. Three leaves in a line, any color.",
+    ember: "Same shape counts too. Three or more leaves in a line, any color.",
     moves: 20,
     goals: [{ kind: "shape", shape: "leaf", n: 8 }],
   },
@@ -47,7 +47,7 @@ export const NIGHTS: Night[] = [
   {
     id: "night-5",
     title: "Keys and mugs",
-    blurb: "The block is swapping again.",
+    blurb: "Neighbors are swapping again.",
     ember: "Keys for who locks up. Mugs for who stays late. Stitch both.",
     moves: 22,
     goals: [
@@ -69,9 +69,9 @@ export const NIGHTS: Night[] = [
   },
   {
     id: "weekly",
-    title: "This week's block",
+    title: "This week's porch",
     blurb: "Same board for the whole neighborhood. Best score this week ranks.",
-    ember: "Everyone on the block plays this one. Your best finish is what goes on the rail.",
+    ember: "Everyone plays this one. Your best finish is what goes on the rail.",
     moves: 26,
     goals: [
       { kind: "matches", n: 10 },
@@ -86,4 +86,12 @@ export function getNight(id: string): Night | null {
 
 export function isNightId(id: string): id is NightId {
   return NIGHTS.some((n) => n.id === id);
+}
+
+export const STORY_NIGHTS = NIGHTS.filter((n) => n.id !== "weekly");
+
+export function nextStoryNight(id: string): NightId | null {
+  const i = STORY_NIGHTS.findIndex((n) => n.id === id);
+  if (i < 0 || i >= STORY_NIGHTS.length - 1) return null;
+  return STORY_NIGHTS[i + 1]!.id;
 }

@@ -74,7 +74,7 @@ export default async function NeighborhoodPage() {
           <span aria-hidden>🗺️</span> Following nearby areas
         </h2>
         <p className="mt-1 text-sm leading-relaxed text-ink-soft">
-          Your block is your home base and never changes. Follow a nearby
+          Your neighborhood is your home base and never changes. Follow a nearby
           neighborhood and its posts, events, and barter listings open up for
           you too — handy when you live on the line between two areas. Unfollow
           any time.

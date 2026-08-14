@@ -96,7 +96,7 @@ export default async function FeedPage({
           <EmptyState
             icon="🏮"
             imageSrc="/images/empty/empty-feed.jpg"
-            title="It's quiet on the block"
+            title="It's quiet around here"
             body={`Be the first neighbor in ${user.neighborhood.name} to post something.`}
             actionLabel="Write a post"
             actionHref="/feed/new"

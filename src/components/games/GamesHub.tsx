@@ -1,20 +1,22 @@
 import Link from "next/link";
 import { ButtonLink, Card } from "@/components/ui";
-import { NIGHTS } from "@/lib/quilt/nights";
+import { STORY_NIGHTS } from "@/lib/quilt/nights";
 import { WEEKLY_PRIZES } from "@/lib/quilt/week";
 import type { BoardRow } from "@/lib/quilt/weekly";
-import { listCourses } from "@/lib/games/levels";
 
 export function GamesHub({
   demo,
   weekKey,
   board,
+  cleared,
 }: {
   demo: boolean;
   weekKey: string;
   board: BoardRow[];
+  cleared: string[];
 }) {
-  const story = NIGHTS.filter((n) => n.id !== "weekly");
+  const next = STORY_NIGHTS.find((n) => !cleared.includes(n.id)) ?? STORY_NIGHTS[0]!;
+  const weeklyOpen = cleared.includes("night-0") && !demo;
 
   return (
     <div className="space-y-5 pb-8">
@@ -33,9 +35,8 @@ export function GamesHub({
             Ember&apos;s Quilt
           </h1>
           <p className="mt-1 text-sm text-porch-100">
-            The porches went dark. Match three of a color or a shape to stitch
-            the glow back. True matches — color and shape — fill the quilt
-            fastest.
+            The porches went dark. Match three or more of a color or a shape.
+            True matches — color and shape — fill the quilt fastest.
           </p>
         </div>
       </div>
@@ -46,28 +47,33 @@ export function GamesHub({
         </p>
         <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-sm text-ink">
           <li>
-            <span className="font-semibold">Tap one tile</span> so it lights up.
+            <span className="font-semibold">Tap one tile</span> so it glows.
           </li>
           <li>
             <span className="font-semibold">Tap a neighbor</span> — only up,
             down, left, or right. They swap.
           </li>
           <li>
-            <span className="font-semibold">Three in a line</span> of the same
-            color or the same shape glow and fall away.
+            <span className="font-semibold">Three or more in a line</span> of
+            the same color or the same shape glow and fall away.
           </li>
           <li>
             <span className="font-semibold">True stitch</span> = same color and
             same shape. Those fill Ember&apos;s card fastest.
           </li>
-          <li>Finish the card before moves run out.</li>
+          <li>Finish the card before moves run out. Nights unlock in order.</li>
         </ol>
-        <Link
-          href="/games/quilt?night=night-0"
-          className="mt-3 inline-flex min-h-11 items-center font-semibold text-porch-700"
+        <ButtonLink
+          href={`/games/quilt?night=${next.id}`}
+          size="lg"
+          className="mt-4"
         >
-          Start Night 0 — Ember walks you through it →
-        </Link>
+          {cleared.includes(next.id)
+            ? `Play ${next.title}`
+            : next.id === "night-0"
+              ? "Start with Ember"
+              : `Continue — ${next.title}`}
+        </ButtonLink>
       </Card>
 
       <div>
@@ -75,32 +81,62 @@ export function GamesHub({
           Ember&apos;s nights
         </p>
         <ul className="space-y-2">
-          {story.map((n, i) => (
-            <li key={n.id}>
-              <Link
-                href={`/games/quilt?night=${n.id}`}
-                className="surface block p-4 active:bg-porch-50/50"
-              >
-                <p className="text-[15px] font-semibold">
-                  Night {i} · {n.title}
-                </p>
-                <p className="mt-0.5 text-sm text-ink-soft">{n.blurb}</p>
-              </Link>
-            </li>
-          ))}
+          {STORY_NIGHTS.map((n, i) => {
+            const open =
+              n.id === "night-0" ||
+              cleared.includes(n.id) ||
+              (i > 0 && cleared.includes(STORY_NIGHTS[i - 1]!.id));
+            const done = cleared.includes(n.id);
+            return (
+              <li key={n.id}>
+                {open ? (
+                  <Link
+                    href={`/games/quilt?night=${n.id}`}
+                    className="surface block p-4 active:bg-porch-50/50"
+                  >
+                    <p className="text-[15px] font-semibold">
+                      Night {i} · {n.title}
+                      {done ? " · lit" : ""}
+                    </p>
+                    <p className="mt-0.5 text-sm text-ink-soft">{n.blurb}</p>
+                  </Link>
+                ) : (
+                  <div className="surface p-4 opacity-60">
+                    <p className="text-[15px] font-semibold">
+                      Night {i} · {n.title}
+                    </p>
+                    <p className="mt-0.5 text-sm text-ink-soft">
+                      Locked. Finish the night before this one.
+                    </p>
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </div>
 
-      <Link
-        href="/games/quilt?night=weekly"
-        className="glow-ring block rounded-card border border-porch-200 bg-porch-50 p-4"
-      >
-        <p className="text-[15px] font-semibold">This week&apos;s block</p>
-        <p className="mt-0.5 text-sm text-ink-soft">
-          Same board for everyone. Best score this week (week of {weekKey})
-          ranks for coins.
-        </p>
-      </Link>
+      {weeklyOpen ? (
+        <Link
+          href="/games/quilt?night=weekly"
+          className="glow-ring block rounded-card border border-porch-200 bg-porch-50 p-4"
+        >
+          <p className="text-[15px] font-semibold">This week&apos;s porch</p>
+          <p className="mt-0.5 text-sm text-ink-soft">
+            Same board for everyone. Best score this week (week of {weekKey})
+            ranks for coins.
+          </p>
+        </Link>
+      ) : (
+        <Card className="opacity-70">
+          <p className="text-[15px] font-semibold">This week&apos;s porch</p>
+          <p className="mt-0.5 text-sm text-ink-soft">
+            {demo
+              ? "Log in and finish Night 0 to rank this week."
+              : "Finish Night 0 with Ember, then this week's board opens."}
+          </p>
+        </Card>
+      )}
 
       <Card>
         <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">
@@ -128,8 +164,8 @@ export function GamesHub({
         <p className="mt-3 text-sm text-ink-soft">
           Coins post Monday morning when the week rolls. Ties go to whoever
           posted the score first. Credits can&apos;t be bought or cashed out —
-          spend them on the block. Guests can play; only logged-in neighbors
-          rank.
+          spend them with neighbors. Guests can play Night 0; only logged-in
+          neighbors rank.
         </p>
       </Card>
 
@@ -140,8 +176,8 @@ export function GamesHub({
         {board.length === 0 ? (
           <Card>
             <p className="text-sm text-ink-soft">
-              No scores this week yet. Play the weekly block to put a name on
-              the rail.
+              No scores this week yet. Play this week&apos;s porch to put a
+              name on the rail.
             </p>
           </Card>
         ) : (
@@ -187,28 +223,6 @@ export function GamesHub({
           Log in to rank
         </ButtonLink>
       )}
-
-      <details className="surface p-3">
-        <summary className="min-h-11 cursor-pointer text-sm font-semibold">
-          Classic: Light the Block (beta)
-        </summary>
-        <p className="mt-2 text-sm text-ink-soft">
-          The lantern runner is still here. Controls are rough — Ember&apos;s
-          Quilt is the game that counts this week.
-        </p>
-        <ul className="mt-2 space-y-1">
-          {listCourses().map((c) => (
-            <li key={c.id}>
-              <Link
-                href={`/games/light-the-block?level=${c.id}`}
-                className="text-sm font-semibold text-porch-700"
-              >
-                {c.name} →
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </details>
 
       <p className="text-center text-xs text-ink-soft">
         Weekly coins go to 1st–3rd. They can&apos;t be bought or cashed out.

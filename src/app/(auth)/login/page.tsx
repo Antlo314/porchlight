@@ -72,7 +72,7 @@ function LoginForm() {
   return (
     <AuthShell
       title="Welcome back"
-      subtitle="Your block is right where you left it."
+      subtitle="Your neighborhood is right where you left it."
       footer={
         <>
           New here?{" "}
@@ -138,7 +138,7 @@ function AuthFallback() {
   return (
     <AuthShell
       title="Welcome back"
-      subtitle="Your block is right where you left it."
+      subtitle="Your neighborhood is right where you left it."
     >
       <div className="space-y-4" aria-hidden>
         <div className="h-12 animate-shimmer rounded-card bg-line/70" />

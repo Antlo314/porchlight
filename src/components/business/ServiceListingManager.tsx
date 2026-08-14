@@ -255,6 +255,9 @@ function ListingSheet({
   const [title, setTitle] = useState(listing?.title ?? "");
   const [description, setDescription] = useState(listing?.description ?? "");
   const [priceInfo, setPriceInfo] = useState(listing?.priceInfo ?? "");
+  const [acceptsCredits, setAcceptsCredits] = useState(
+    listing?.acceptsCredits ?? false
+  );
   const [images, setImages] = useState<string[]>(listing?.images ?? []);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -266,6 +269,7 @@ function ListingSheet({
     setTitle(listing?.title ?? "");
     setDescription(listing?.description ?? "");
     setPriceInfo(listing?.priceInfo ?? "");
+    setAcceptsCredits(listing?.acceptsCredits ?? false);
     setImages(listing?.images ?? []);
     setError(null);
   }, [editing, listing]);
@@ -281,12 +285,14 @@ function ListingSheet({
             title,
             description,
             priceInfo,
+            acceptsCredits,
             images,
           })
         : await createServiceListing({
             title,
             description,
             priceInfo,
+            acceptsCredits,
             images,
           });
 
@@ -336,6 +342,16 @@ function ListingSheet({
             placeholder="from $95"
           />
         </Field>
+
+        <label className="flex min-h-11 items-center gap-3 text-[15px]">
+          <input
+            type="checkbox"
+            checked={acceptsCredits}
+            onChange={(e) => setAcceptsCredits(e.target.checked)}
+            className="h-5 w-5 rounded border-line accent-porch-600"
+          />
+          Accepts Porch Credits
+        </label>
 
         <ImageUploader
           images={images}

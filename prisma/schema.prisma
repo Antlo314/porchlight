@@ -385,8 +385,9 @@ model ServiceListing {
   business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   title       String
   description String
-  priceInfo   String?  // freeform: "from $80", "free estimates"
-  images      String   @default("[]")
+  priceInfo       String?  // freeform: "from $80", "free estimates"
+  acceptsCredits  Boolean  @default(false)
+  images          String   @default("[]")
   status      String   @default("ACTIVE") // ACTIVE | PAUSED
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
