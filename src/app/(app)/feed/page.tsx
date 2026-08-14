@@ -6,7 +6,6 @@ import { db } from "@/lib/db";
 import { POST_TYPE_META, PostType } from "@/lib/validators";
 import { visibleNeighborhoodIds } from "@/lib/visibility";
 import { pluralize } from "@/lib/format";
-import { gameCreditUsage } from "@/lib/games/economy";
 import Link from "next/link";
 
 const PAGE_SIZE = 40;
@@ -26,7 +25,7 @@ export default async function FeedPage({
   // Home neighborhood plus any the member follows.
   const neighborhoodIds = await visibleNeighborhoodIds(user);
 
-  const [posts, upcomingEvents, gameUsage] = await Promise.all([
+  const [posts, upcomingEvents] = await Promise.all([
     db.post.findMany({
       where: {
         neighborhoodId: { in: neighborhoodIds },
@@ -47,7 +46,6 @@ export default async function FeedPage({
         post: { neighborhoodId: { in: neighborhoodIds } },
       },
     }),
-    gameCreditUsage(user.id),
   ]);
 
   return (

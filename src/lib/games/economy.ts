@@ -4,6 +4,7 @@
 import { db } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 import { notify } from "@/lib/notify";
+import { ensureGameRunTable } from "./ensure";
 import { creditsForRun } from "./scoring";
 import { GAME_ID, RUN_STATUS, type LevelId } from "./types";
 
@@ -27,6 +28,7 @@ async function lockUser(tx: Tx, userId: string) {
 }
 
 export async function gameCreditUsage(userId: string, at = new Date()) {
+  await ensureGameRunTable();
   const [lifetimeAgg, recentAgg, lastAward] = await Promise.all([
     db.tradeCreditEntry.aggregate({
       where: { userId, reason: GAME_REWARD, delta: { gt: 0 } },
@@ -80,6 +82,7 @@ export type GrantResult = {
 };
 
 export async function grantGameReward(input: GrantInput): Promise<GrantResult> {
+  await ensureGameRunTable();
   const empty = (reason: GrantResult["reason"], remainingToday: number): GrantResult => ({
     credits: 0,
     reason,

@@ -3,6 +3,7 @@
 import { currentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { gameCreditUsage, grantGameReward } from "@/lib/games/economy";
+import { ensureGameRunTable } from "@/lib/games/ensure";
 import { dailySeed, getLevel } from "@/lib/games/levels";
 import { parseEvents, validateRun } from "@/lib/games/scoring";
 import { issueTicket, mintNonce, readTicket, TICKET_TTL_MS } from "@/lib/games/session";
@@ -35,6 +36,7 @@ export async function startRunAction(levelId: string): Promise<StartRunResult> {
   const nonce = mintNonce();
 
   try {
+    await ensureGameRunTable();
     if (user) {
       await db.gameRun.updateMany({
         where: { userId: user.id, status: RUN_STATUS.STARTED },
@@ -272,6 +274,7 @@ export async function startQuiltAction(nightId: string) {
       : `${nightId}:v1`;
   const nonce = mintNonce();
   try {
+    await ensureGameRunTable();
     const run = await db.gameRun.create({
       data: {
         userId: user?.id ?? null,
