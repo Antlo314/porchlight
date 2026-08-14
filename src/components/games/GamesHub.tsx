@@ -15,7 +15,12 @@ export function GamesHub({
   board: BoardRow[];
   cleared: string[];
 }) {
-  const next = STORY_NIGHTS.find((n) => !cleared.includes(n.id)) ?? STORY_NIGHTS[0]!;
+  const currentIndex = STORY_NIGHTS.findIndex((n) => !cleared.includes(n.id));
+  const current =
+    currentIndex === -1
+      ? STORY_NIGHTS[STORY_NIGHTS.length - 1]!
+      : STORY_NIGHTS[currentIndex]!;
+  const pathIndex = currentIndex === -1 ? STORY_NIGHTS.length : currentIndex + 1;
   const weeklyOpen = cleared.includes("night-0") && !demo;
 
   return (
@@ -36,43 +41,30 @@ export function GamesHub({
           </h1>
           <p className="mt-1 text-sm text-porch-100">
             The porches went dark. Match three or more of a color or a shape.
-            True matches — color and shape — fill the quilt fastest.
+            Nights unlock in order.
+          </p>
+          <p className="mt-3 text-sm font-semibold text-porch-200">
+            Night {pathIndex} of {STORY_NIGHTS.length}
           </p>
         </div>
       </div>
 
       <Card className="border-porch-200 bg-porch-50">
         <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">
-          How to play
+          Play now
         </p>
-        <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-sm text-ink">
-          <li>
-            <span className="font-semibold">Tap one tile</span> so it glows.
-          </li>
-          <li>
-            <span className="font-semibold">Tap a neighbor</span> — only up,
-            down, left, or right. They swap.
-          </li>
-          <li>
-            <span className="font-semibold">Three or more in a line</span> of
-            the same color or the same shape glow and fall away.
-          </li>
-          <li>
-            <span className="font-semibold">True stitch</span> = same color and
-            same shape. Those fill Ember&apos;s card fastest.
-          </li>
-          <li>Finish the card before moves run out. Nights unlock in order.</li>
-        </ol>
+        <p className="mt-1 font-display text-xl font-semibold">{current.title}</p>
+        <p className="mt-0.5 text-sm text-ink-soft">{current.blurb}</p>
         <ButtonLink
-          href={`/games/quilt?night=${next.id}`}
+          href={`/games/quilt?night=${current.id}`}
           size="lg"
           className="mt-4"
         >
-          {cleared.includes(next.id)
-            ? `Play ${next.title}`
-            : next.id === "night-0"
-              ? "Start with Ember"
-              : `Continue — ${next.title}`}
+          {cleared.includes(current.id)
+            ? `Replay ${current.title}`
+            : current.id === "night-0"
+              ? "Start Night 0 — Ember walks you through it"
+              : `Continue — ${current.title}`}
         </ButtonLink>
       </Card>
 
@@ -82,32 +74,54 @@ export function GamesHub({
         </p>
         <ul className="space-y-2">
           {STORY_NIGHTS.map((n, i) => {
-            const open =
-              n.id === "night-0" ||
-              cleared.includes(n.id) ||
-              (i > 0 && cleared.includes(STORY_NIGHTS[i - 1]!.id));
             const done = cleared.includes(n.id);
+            const unlocked =
+              n.id === "night-0" ||
+              done ||
+              (i > 0 && cleared.includes(STORY_NIGHTS[i - 1]!.id));
+            const prev = i > 0 ? STORY_NIGHTS[i - 1]! : null;
             return (
               <li key={n.id}>
-                {open ? (
+                {unlocked ? (
                   <Link
                     href={`/games/quilt?night=${n.id}`}
-                    className="surface block p-4 active:bg-porch-50/50"
+                    className={`surface flex items-start gap-3 p-4 active:bg-porch-50/50 ${
+                      n.id === current.id && !done ? "ring-2 ring-porch-400" : ""
+                    }`}
                   >
-                    <p className="text-[15px] font-semibold">
-                      Night {i} · {n.title}
-                      {done ? " · lit" : ""}
-                    </p>
-                    <p className="mt-0.5 text-sm text-ink-soft">{n.blurb}</p>
+                    <span
+                      className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                        done
+                          ? "bg-pine-600 text-cream"
+                          : "bg-porch-600 text-white"
+                      }`}
+                    >
+                      {done ? "✓" : i}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[15px] font-semibold">
+                        Night {i} · {n.title}
+                        {done ? " · lit" : n.id === current.id ? " · current" : ""}
+                      </p>
+                      <p className="mt-0.5 text-sm text-ink-soft">{n.blurb}</p>
+                    </div>
                   </Link>
                 ) : (
-                  <div className="surface p-4 opacity-60">
-                    <p className="text-[15px] font-semibold">
-                      Night {i} · {n.title}
-                    </p>
-                    <p className="mt-0.5 text-sm text-ink-soft">
-                      Locked. Finish the night before this one.
-                    </p>
+                  <div className="surface flex items-start gap-3 p-4">
+                    <span
+                      aria-hidden
+                      className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line bg-line/70 text-sm font-bold text-ink-soft"
+                    >
+                      ⌁
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[15px] font-semibold text-ink-soft">
+                        Locked · Night {i} · {n.title}
+                      </p>
+                      <p className="mt-0.5 text-sm text-ink-soft">
+                        Finish {prev?.title ?? "the night before"} first.
+                      </p>
+                    </div>
                   </div>
                 )}
               </li>
@@ -128,14 +142,24 @@ export function GamesHub({
           </p>
         </Link>
       ) : (
-        <Card className="opacity-70">
-          <p className="text-[15px] font-semibold">This week&apos;s porch</p>
-          <p className="mt-0.5 text-sm text-ink-soft">
-            {demo
-              ? "Log in and finish Night 0 to rank this week."
-              : "Finish Night 0 with Ember, then this week's board opens."}
-          </p>
-        </Card>
+        <div className="surface flex items-start gap-3 p-4">
+          <span
+            aria-hidden
+            className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line bg-line/70 text-sm font-bold text-ink-soft"
+          >
+            ⌁
+          </span>
+          <div>
+            <p className="text-[15px] font-semibold text-ink-soft">
+              Locked · This week&apos;s porch
+            </p>
+            <p className="mt-0.5 text-sm text-ink-soft">
+              {demo
+                ? "Log in and finish Night 0 to rank this week."
+                : "Finish Night 0 with Ember, then this week's board opens."}
+            </p>
+          </div>
+        </div>
       )}
 
       <Card>
@@ -220,7 +244,7 @@ export function GamesHub({
 
       {demo && (
         <ButtonLink href="/login?next=/games" size="lg">
-          Log in to rank
+          Log in to unlock nights and rank
         </ButtonLink>
       )}
 

@@ -6,6 +6,7 @@ import { startQuiltAction, submitQuiltAction } from "@/app/(games)/games/actions
 import {
   adjacent,
   createState,
+  findHint,
   goalCount,
   goalLabel,
   goalsMet,
@@ -42,6 +43,8 @@ export function QuiltPlay({
   const [emberMood, setEmberMood] = useState<"idle" | "talk" | "cheer">("idle");
   const [freshIds, setFreshIds] = useState<Set<number>>(new Set());
   const [flash, setFlash] = useState(false);
+  const [fails, setFails] = useState(0);
+  const [hint, setHint] = useState<{ a: Cell; b: Cell } | null>(null);
 
   useEffect(() => {
     startLoop();
@@ -75,17 +78,23 @@ export function QuiltPlay({
     }
     const res: SwapResult = swap(state, selected, cell);
     setSelected(null);
+    setHint(null);
     if (!res.ok) {
       playSfx("invalid", 0.4);
       setShake(`${cell.r},${cell.c}`);
       window.setTimeout(() => setShake(null), 240);
+      const nextFails = fails + 1;
+      setFails(nextFails);
       speak(
         res.reason === "no-match"
-          ? "That swap doesn't stitch. Need three or more of a color or a shape, in a straight line."
+          ? nextFails >= 2
+            ? "That swap doesn't stitch. Tap Show a stitch if you want a hint."
+            : "That swap doesn't stitch. Need three or more of a color or a shape, in a straight line."
           : "That one won't go."
       );
       return;
     }
+    setFails(0);
     playSfx("swap", 0.45);
     const nextMoves = [...moves, { a: selected, b: cell }];
     setMoves(nextMoves);
@@ -147,7 +156,10 @@ export function QuiltPlay({
           ← Hub
         </button>
         <p className="text-sm font-bold">{night.title}</p>
-        <p className="text-sm tabular-nums text-ink-soft">{state.movesLeft} moves</p>
+        <p className="text-sm tabular-nums text-ink-soft">
+          {state.movesLeft} moves
+          {state.combo > 1 ? ` · x${state.combo}` : ""}
+        </p>
       </div>
 
       <div className="mb-2 grid grid-cols-3 gap-2 text-center text-xs">
@@ -184,6 +196,13 @@ export function QuiltPlay({
                 key={tile?.id ?? key}
                 tile={tile}
                 selected={selected?.r === r && selected?.c === c}
+                hinted={
+                  Boolean(
+                    hint &&
+                      ((hint.a.r === r && hint.a.c === c) ||
+                        (hint.b.r === r && hint.b.c === c))
+                  )
+                }
                 shaking={shake === key}
                 dropping={Boolean(tile && freshIds.has(tile.id))}
                 popping={false}
@@ -195,7 +214,26 @@ export function QuiltPlay({
         )}
       </div>
 
-      <p className="mt-2 text-center text-sm font-bold tabular-nums">{state.score} glow</p>
+      <p className="mt-2 text-center text-sm font-bold tabular-nums">
+        {state.score} glow
+      </p>
+      {fails >= 2 && !over && (
+        <button
+          type="button"
+          className="mx-auto mt-2 min-h-11 px-4 text-sm font-semibold text-porch-700"
+          onClick={() => {
+            const pair = findHint(state.board);
+            setHint(pair);
+            speak(
+              pair
+                ? "Those two dashed tiles will stitch. Tap one, then the other."
+                : "I don't see a stitch. Try another pair."
+            );
+          }}
+        >
+          Show a stitch
+        </button>
+      )}
 
       <div className="mt-3 flex gap-3 rounded-card border border-line bg-card p-3">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -303,7 +341,18 @@ export function QuiltBoot({ nightId }: { nightId: string }) {
     return <p className="p-8 text-center text-sm font-semibold">Ember is lighting the quilt…</p>;
   }
   if (boot.status === "error") {
-    return <p className="p-8 text-center text-sm">{boot.error}</p>;
+    return (
+      <div className="space-y-3 p-8 text-center">
+        <p className="text-sm">{boot.error}</p>
+        <button
+          type="button"
+          className="min-h-11 font-semibold text-porch-700"
+          onClick={() => (window.location.href = "/games")}
+        >
+          Back to hub
+        </button>
+      </div>
+    );
   }
   return <QuiltPlay nightId={boot.nightId} seed={boot.seed} token={boot.token} />;
 }

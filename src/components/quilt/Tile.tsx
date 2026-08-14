@@ -15,6 +15,7 @@ export function TileView({
   shaking,
   dropping,
   popping,
+  hinted,
   delay,
   onTap,
 }: {
@@ -23,6 +24,7 @@ export function TileView({
   shaking: boolean;
   dropping: boolean;
   popping: boolean;
+  hinted?: boolean;
   delay: number;
   onTap: () => void;
 }) {
@@ -34,9 +36,9 @@ export function TileView({
       onClick={onTap}
       className={`relative aspect-square overflow-hidden rounded-lg ${
         selected ? "quilt-selected z-10" : ""
-      } ${shaking ? "quilt-shake" : ""} ${popping ? "quilt-pop" : ""} ${
-        dropping ? "quilt-drop" : ""
-      }`}
+      } ${hinted && !selected ? "quilt-hint" : ""} ${
+        shaking ? "quilt-shake" : ""
+      } ${popping ? "quilt-pop" : ""} ${dropping ? "quilt-drop" : ""}`}
       style={{
         background: `radial-gradient(circle at 30% 25%, color-mix(in srgb, ${hex} 78%, white), ${hex})`,
         boxShadow: selected

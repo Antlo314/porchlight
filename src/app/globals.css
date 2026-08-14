@@ -260,6 +260,11 @@ body::before {
   animation: quilt-breathe 2.6s ease-in-out infinite;
 }
 
+.quilt-hint {
+  outline: 2px dashed var(--color-porch-300);
+  outline-offset: 1px;
+}
+
 .quilt-selected {
   z-index: 10;
   outline: 3px solid var(--color-porch-400);

@@ -259,6 +259,31 @@ export function goalLabel(g: Goal): string {
   return `${g.n} ${g.shape}s`;
 }
 
+export function findHint(board: (Tile | null)[][]): { a: Cell; b: Cell } | null {
+  const dirs = [
+    { dr: 0, dc: 1 },
+    { dr: 1, dc: 0 },
+  ];
+  for (let r = 0; r < BOARD_SIZE; r++) {
+    for (let c = 0; c < BOARD_SIZE; c++) {
+      if (!board[r]![c]) continue;
+      for (const { dr, dc } of dirs) {
+        const nr = r + dr;
+        const nc = c + dc;
+        if (!inBounds(nr, nc) || !board[nr]![nc]) continue;
+        const copy = board.map((row) => row.slice());
+        const tmp = copy[r]![c];
+        copy[r]![c] = copy[nr]![nc];
+        copy[nr]![nc] = tmp;
+        if (findMatches(copy).marked.size > 0) {
+          return { a: { r, c }, b: { r: nr, c: nc } };
+        }
+      }
+    }
+  }
+  return null;
+}
+
 export type SwapResult =
   | { ok: true; state: QuiltState; cleared: boolean }
   | { ok: false; reason: "not-adjacent" | "no-match" | "no-moves" | "done" };

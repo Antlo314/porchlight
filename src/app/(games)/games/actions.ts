@@ -307,6 +307,12 @@ export async function startQuiltAction(nightId: string) {
       nightId,
     };
   } catch {
+    if (nightId !== "night-0") {
+      return {
+        ok: false as const,
+        error: "Couldn't start that night. Try Night 0 from the hub.",
+      };
+    }
     const token = issueTicket({
       runId: `demo-${nonce}`,
       userId: null,
@@ -366,10 +372,12 @@ export async function submitQuiltAction(input: {
         amount: 3,
       }).catch(() => 0);
     }
-    try {
-      await recordWeeklyScore(user.id, final.score);
-    } catch {
-      /* table may still be coming up */
+    if (ticket.levelId === "weekly") {
+      try {
+        await recordWeeklyScore(user.id, final.score);
+      } catch {
+        /* table may still be coming up */
+      }
     }
   }
 
