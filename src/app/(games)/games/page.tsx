@@ -1,31 +1,32 @@
 import { currentUser } from "@/lib/auth";
 import { GamesHub } from "@/components/games/GamesHub";
-import { loadQuiltHub } from "./actions";
+import { gameCreditUsage } from "@/lib/games/economy";
+import { settleLastWeek } from "@/lib/quilt/weekly";
 
 export const metadata = {
   title: "Games",
   description:
-    "Light the Block and Ember's Quilt — light Atlanta porches and earn Porch Credits.",
+    "Light the Block — run Atlanta stoops as the porch lantern and earn Porch Credits.",
   openGraph: {
-    title: "Porchlight Games",
+    title: "Light the Block",
     description:
-      "Light the Block: run the stoops as the porch lantern. Ember's Quilt: fifteen nights of stitching. 1st–3rd win Porch Credits each week.",
+      "You're the porch lantern. Hop Atlanta stoops, light the dark ones, earn Porch Credits.",
     images: [{ url: "/images/games-og.jpg", width: 1200, height: 630 }],
   },
 };
 
 export default async function GamesPage() {
   const user = await currentUser().catch(() => null);
-  const hub = await loadQuiltHub();
+
+  // Ember's Quilt is off the hub, but any week that closed with unpaid winners
+  // still needs settling — dropping this would strand those credits.
+  await settleLastWeek().catch(() => undefined);
+
+  const usage = user ? await gameCreditUsage(user.id).catch(() => null) : null;
 
   return (
     <div className="pb-10">
-      <GamesHub
-        demo={!user}
-        weekKey={hub.weekKey}
-        board={hub.board}
-        cleared={hub.cleared}
-      />
+      <GamesHub demo={!user} remainingToday={usage?.remainingToday ?? 0} />
     </div>
   );
 }

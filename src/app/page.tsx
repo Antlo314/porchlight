@@ -13,8 +13,8 @@ const FEATURES = [
     body: "Answer a post. Message a neighbor. That's the lifeblood.",
   },
   {
-    title: "Ember’s Quilt",
-    body: "Match color and shape. Rank weekly. The porch glows again.",
+    title: "Light the Block",
+    body: "Run the stoops as the porch lantern. Light them up, earn credits.",
   },
   {
     title: "Local pros, listed free",
@@ -81,7 +81,7 @@ export default async function LandingPage() {
             size="lg"
             className="border border-porch-200 bg-porch-50 text-porch-800"
           >
-            Play Ember’s Quilt — no account needed
+            Play Light the Block — no account needed
           </ButtonLink>
           <p className="pt-1 text-center text-xs text-ink-soft">
             Free for neighbors. Forever.{" "}

@@ -49,15 +49,15 @@ export async function DesktopRail({
       </Card>
 
       <Card className="border-porch-200 bg-porch-50">
-        <p className="font-display text-[15px] font-semibold">Ember&apos;s Quilt</p>
+        <p className="font-display text-[15px] font-semibold">Light the Block</p>
         <p className="mt-1 text-sm text-ink-soft">
-          Match, rank, win weekly coins. Guests can play; neighbors rank.
+          Hop the stoops as the porch lantern. Guests can play; neighbors earn.
         </p>
         <Link
           href="/games"
           className="mt-2 inline-flex min-h-10 items-center font-semibold text-porch-700"
         >
-          Play this week →
+          Run the block →
         </Link>
       </Card>
 

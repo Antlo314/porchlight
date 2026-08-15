@@ -279,11 +279,11 @@ export function SignupForm({
         <div className="mt-5 rounded-card border border-porch-200 bg-porch-50 p-4">
           <p className="text-[15px] font-semibold">Play while the ledger is offline</p>
           <p className="mt-1 text-sm text-ink-soft">
-            Ember&apos;s Quilt works as a guest. Sign up later, once the
+            Light the Block works as a guest. Sign up later, once the
             database is connected, to keep Porch Credits.
           </p>
           <ButtonLink href="/games" className="mt-3" size="md">
-            Play Ember&apos;s Quilt
+            Play Light the Block
           </ButtonLink>
         </div>
       )}

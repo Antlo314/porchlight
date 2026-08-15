@@ -14,7 +14,7 @@ import {
 } from "../src/lib/quilt/engine";
 import { NIGHTS, STORY_NIGHTS, getNight, nextStoryNight } from "../src/lib/quilt/nights";
 import { atlantaWeekKey } from "../src/lib/quilt/week";
-import { DEFAULT_BOARD_SIZE } from "../src/lib/quilt/types";
+import { COLORS, DEFAULT_BOARD_SIZE, SHAPES } from "../src/lib/quilt/types";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -63,6 +63,89 @@ check("found at least one legal opening swap", foundSwap);
 
 const bad = swap(start, { r: 0, c: 0 }, { r: 3, c: 3 });
 check("non-adjacent swap rejected", !bad.ok && bad.reason === "not-adjacent");
+
+console.log("\nRuns of four and five\n");
+
+// Hand-built boards: does a run longer than three clear as ONE run, or does the
+// scanner stop at three? Colors step by 1 and shapes by 2 across the grid, so
+// no two neighbours ever share either attribute and the filler is provably
+// quiet — any match the engine reports is the one the test planted.
+type AnyTile = { id: number; color: string; shape: string };
+function quietBoard(): AnyTile[][] {
+  let id = 1;
+  return Array.from({ length: 7 }, (_, r) =>
+    Array.from({ length: 7 }, (_, c) => ({
+      id: id++,
+      color: COLORS[(r + c) % COLORS.length]!,
+      shape: SHAPES[(r * 2 + c) % SHAPES.length]!,
+    }))
+  );
+}
+function paint(board: AnyTile[][], cells: [number, number][], color: string, shapes: string[]) {
+  cells.forEach(([r, c], i) => {
+    board[r]![c] = { ...board[r]![c]!, color, shape: shapes[i % shapes.length]! };
+  });
+  return board;
+}
+
+const quiet = quietBoard();
+check("the probe filler is quiet", findMatches(quiet as never).marked.size === 0);
+
+const four = paint(quietBoard(), [[3, 0], [3, 1], [3, 2], [3, 3]], "amber", [
+  "leaf",
+  "key",
+  "mug",
+  "star",
+]);
+check(
+  "four of one color clear as one run",
+  findMatches(four as never).marked.size === 4,
+  `marked ${findMatches(four as never).marked.size}`
+);
+
+const five = paint(
+  quietBoard(),
+  [[5, 0], [5, 1], [5, 2], [5, 3], [5, 4]],
+  "dusk",
+  ["star", "leaf", "key", "mug", "peach"]
+);
+check(
+  "five of one color clear as one run",
+  findMatches(five as never).marked.size === 5,
+  `marked ${findMatches(five as never).marked.size}`
+);
+
+const col = paint(quietBoard(), [[0, 2], [1, 2], [2, 2], [3, 2]], "clay", [
+  "mug",
+  "leaf",
+  "star",
+  "key",
+]);
+check(
+  "four in a column clear as one run",
+  findMatches(col as never).marked.size === 4,
+  `marked ${findMatches(col as never).marked.size}`
+);
+
+// Same shape, four across, four different colors.
+const shapeRun = quietBoard();
+[
+  [1, 0],
+  [1, 1],
+  [1, 2],
+  [1, 3],
+].forEach(([r, c], i) => {
+  shapeRun[r!]![c!] = {
+    ...shapeRun[r!]![c!]!,
+    shape: "star",
+    color: ["amber", "pine", "cream", "dusk"][i]!,
+  };
+});
+check(
+  "four of one shape clear as one run",
+  findMatches(shapeRun as never).marked.size === 4,
+  `marked ${findMatches(shapeRun as never).marked.size}`
+);
 
 console.log("\nStory arc\n");
 

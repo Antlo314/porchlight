@@ -75,10 +75,10 @@ export default async function FeedPage({
       >
         <span className="flex items-center gap-2 text-[15px] font-semibold">
           <LanternMark className="h-5 w-5" />
-          Ember&apos;s Quilt
+          Light the Block
         </span>
         <span className="flex items-center gap-2 text-sm text-ink-soft">
-          Play this week
+          Run the stoops
           <span aria-hidden>→</span>
         </span>
       </Link>

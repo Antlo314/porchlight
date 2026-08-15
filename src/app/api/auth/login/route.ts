@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "Couldn't reach the porch ledger. The database isn't connected — you can still play Ember's Quilt as a guest.",
+          "Couldn't reach the porch ledger. The database isn't connected — you can still play Light the Block as a guest.",
         offline: true,
       },
       { status: 503 }

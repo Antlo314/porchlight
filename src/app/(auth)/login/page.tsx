@@ -122,11 +122,11 @@ function LoginForm() {
         <div className="mt-5 rounded-card border border-porch-200 bg-porch-50 p-4">
           <p className="text-[15px] font-semibold">The ledger is offline</p>
           <p className="mt-1 text-sm text-ink-soft">
-            Signup and login need the database. You can still play Ember&apos;s
-            Quilt as a guest right now.
+            Signup and login need the database. You can still play Light the
+            Block as a guest right now.
           </p>
           <ButtonLink href="/games" className="mt-3" size="md">
-            Play Ember&apos;s Quilt
+            Play Light the Block
           </ButtonLink>
         </div>
       )}

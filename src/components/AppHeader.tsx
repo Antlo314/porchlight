@@ -20,7 +20,7 @@ export default function AppHeader({
         <div className="flex items-center gap-0.5">
           <Link
             href="/games"
-            aria-label="Play Ember's Quilt"
+            aria-label="Play Light the Block"
             className="flex h-11 w-11 items-center justify-center rounded-full text-porch-800 active:bg-porch-100"
           >
             <Icon name="games" className="h-5 w-5" />
