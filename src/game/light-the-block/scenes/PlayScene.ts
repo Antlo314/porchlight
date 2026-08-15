@@ -1,21 +1,21 @@
 import * as Phaser from "phaser";
 import { getLevel } from "@/lib/games/levels";
+import {
+  AIR_JUMPS,
+  BUFFER_MS,
+  COYOTE_MS,
+  HOLD_V,
+  JUMP_V,
+  LIVES,
+  PLAYER_H,
+  PLAYER_START_X,
+  PLAYER_W,
+  RUN_SPEED,
+  WORLD_HEIGHT,
+} from "@/lib/games/physics";
 import { scoreFromCounts } from "@/lib/games/scoring";
 import type { LevelDef, RunEvent } from "@/lib/games/types";
-import type { GameBridge } from "../boot";
-
-const PLAYER_W = 44;
-const PLAYER_H = 62;
-const RUN_SPEED: Record<LevelDef["mood"], number> = {
-  dusk: 228,
-  storm: 242,
-  night: 252,
-};
-const JUMP_V = -470;
-const HOLD_V = -92;
-const COYOTE_MS = 110;
-const BUFFER_MS = 130;
-const LIVES = 3;
+import type { GameBridge, GameControls, RunStatusSnapshot } from "../boot";
 
 type MoodPalette = {
   skyTop: number;
@@ -66,24 +66,37 @@ export class PlayScene extends Phaser.Scene {
   private platforms!: Phaser.Physics.Arcade.StaticGroup;
   private rails!: Phaser.Physics.Arcade.StaticGroup;
 
+  /** Built by buildWorld(), wired to the player by wireCollisions(). */
+  private porchZones: Phaser.GameObjects.Zone[] = [];
+  private coinSprites: Phaser.GameObjects.GameObject[] = [];
+  private puddleSprites: Phaser.GameObjects.GameObject[] = [];
+  private gustSprites: Array<{ obj: Phaser.GameObjects.GameObject; period: number }> = [];
+  private finishGate!: Phaser.GameObjects.Rectangle;
+
   private eventsLog: RunEvent[] = [];
   private runStartedAt = 0;
+  private pausedAt = 0;
+  private pausedMs = 0;
   private lives = LIVES;
   private coins = 0;
   private porchesLit = 0;
   private deaths = 0;
+  private cleared = false;
   private finished = false;
   private submitting = false;
   private paused = false;
   private muted = false;
   private classic = false;
+  private audioUnlocked = false;
+  private musicStarted = false;
   private dir = 1;
 
   private coyoteUntil = 0;
   private bufferUntil = 0;
+  private airJumpsLeft = AIR_JUMPS;
   private holdingJump = false;
   private invulnUntil = 0;
-  private lastSafe = { x: 80, y: 400 };
+  private lastSafe = { x: PLAYER_START_X, y: 400 };
   private swipeStart: { y: number; t: number } | null = null;
   private cursors: {
     left?: Phaser.Input.Keyboard.Key;
@@ -92,18 +105,22 @@ export class PlayScene extends Phaser.Scene {
     d?: Phaser.Input.Keyboard.Key;
   } = {};
 
+  private backdrop: Phaser.GameObjects.GameObject[] = [];
   private hud!: {
     score: Phaser.GameObjects.Text;
     lives: Phaser.GameObjects.Text;
+    course: Phaser.GameObjects.Text;
     hint: Phaser.GameObjects.Text;
     bar: Phaser.GameObjects.Rectangle;
     barBg: Phaser.GameObjects.Rectangle;
   };
+  private pauseVeil!: Phaser.GameObjects.Container;
 
   constructor() {
     super("play");
   }
 
+  /** Art only. Audio streams in after create() — see loadAudio(). */
   preload() {
     this.load.on("loaderror", () => undefined);
     this.load.image("lantern", "/games/light-the-block/sprites/lantern.png");
@@ -112,14 +129,6 @@ export class PlayScene extends Phaser.Scene {
     this.load.image("platform", "/games/light-the-block/sprites/platform.png");
     this.load.image("porch-unlit", "/games/light-the-block/sprites/porch-unlit.png");
     this.load.image("puddle", "/games/light-the-block/sprites/puddle.png");
-    this.load.audio("sfx-jump", "/games/light-the-block/audio/jump.mp3");
-    this.load.audio("sfx-land", "/games/light-the-block/audio/land.mp3");
-    this.load.audio("sfx-coin", "/games/light-the-block/audio/coin.mp3");
-    this.load.audio("sfx-ignite", "/games/light-the-block/audio/ignite.mp3");
-    this.load.audio("sfx-gust", "/games/light-the-block/audio/gust.mp3");
-    this.load.audio("sfx-snuff", "/games/light-the-block/audio/snuff.mp3");
-    this.load.audio("sfx-clear", "/games/light-the-block/audio/clear.mp3");
-    this.load.audio("bgm", "/games/light-the-block/audio/dusk-loop.mp3");
   }
 
   create() {
@@ -127,45 +136,138 @@ export class PlayScene extends Phaser.Scene {
     this.level = getLevel(this.bridge.levelId, this.bridge.seed);
     this.pal = PALETTES[this.level.mood];
     this.runStartedAt = this.time.now;
-    this.lastSafe = { x: 90, y: this.level.platforms[0]?.y ?? 480 };
+    this.lastSafe = {
+      x: PLAYER_START_X,
+      y: (this.level.platforms[0]?.y ?? 480) - 60,
+    };
 
-    this.physics.world.setBounds(0, 0, this.level.length, 720);
-    this.cameras.main.setBounds(0, 0, this.level.length, 720);
+    this.physics.world.setBounds(0, 0, this.level.length, WORLD_HEIGHT);
+    this.cameras.main.setBounds(0, 0, this.level.length, WORLD_HEIGHT);
     this.cameras.main.setBackgroundColor(this.pal.skyMid);
 
-    this.drawSky();
     this.drawParallax();
-    this.spawnPlayer();
+    // Order matters: buildWorld() creates the platform groups, spawnPlayer()
+    // collides against them. Spawning first left both colliders bound to
+    // `undefined` — Phaser silently drops those, so the lantern fell through
+    // the whole block and the run was over before a tap could register.
     this.buildWorld();
+    this.spawnPlayer();
+    this.wireCollisions();
     this.bindInput();
     this.buildHud();
-    this.maybeMusic();
+    this.buildPauseVeil();
+    this.layout();
 
-    this.scale.on("resize", this.onResize, this);
+    this.scale.on("resize", this.layout, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.scale.off("resize", this.layout, this);
+    });
+
+    this.bridge.onReady(this.controls());
+    this.pushStatus();
+    this.loadAudio();
   }
 
-  private onResize(gameSize: Phaser.Structs.Size) {
-    this.cameras.main.setViewport(0, 0, gameSize.width, gameSize.height);
+  /**
+   * A quarter-megabyte of MP3 has no business holding up the first frame, and
+   * every cue already has a synth fallback. Fetch it in the background and let
+   * the clips swap in whenever they land.
+   */
+  private loadAudio() {
+    const clips: Array<[string, string]> = [
+      ["sfx-jump", "jump"],
+      ["sfx-land", "land"],
+      ["sfx-coin", "coin"],
+      ["sfx-ignite", "ignite"],
+      ["sfx-gust", "gust"],
+      ["sfx-snuff", "snuff"],
+      ["sfx-clear", "clear"],
+      ["bgm", "dusk-loop"],
+    ];
+    let queued = 0;
+    for (const [key, file] of clips) {
+      if (this.cache.audio.exists(key)) continue;
+      this.load.audio(key, `/games/light-the-block/audio/${file}.mp3`);
+      queued += 1;
+    }
+    if (queued === 0) return;
+    this.load.once(Phaser.Loader.Events.COMPLETE, () => this.startMusic());
+    this.load.start();
   }
 
-  private drawSky() {
+  // ---------------------------------------------------------------- controls
+
+  /** Handle the React overlay drives, so the on-screen buttons are real input. */
+  private controls(): GameControls {
+    return {
+      jumpStart: () => {
+        this.unlockAudio();
+        if (this.paused || this.finished) return;
+        this.bufferUntil = this.time.now + BUFFER_MS;
+        this.holdingJump = true;
+        this.tryJump();
+      },
+      jumpEnd: () => {
+        this.holdingJump = false;
+      },
+      drop: () => {
+        this.unlockAudio();
+        this.dropThrough();
+      },
+      togglePause: () => this.togglePause(),
+      toggleMute: () => this.toggleMute(),
+    };
+  }
+
+  private pushStatus() {
+    const snapshot: RunStatusSnapshot = {
+      paused: this.paused,
+      muted: this.muted,
+      finished: this.finished,
+    };
+    this.bridge.onStatus(snapshot);
+  }
+
+  // ------------------------------------------------------------------ visual
+
+  private drawBackdrop() {
+    this.backdrop.forEach((o) => o.destroy());
+    this.backdrop = [];
+
     const w = Math.max(this.scale.width, 420);
-    const h = 720;
+    const h = Math.max(this.scale.height, WORLD_HEIGHT);
     const g = this.add.graphics().setScrollFactor(0).setDepth(-40);
     g.fillGradientStyle(this.pal.skyTop, this.pal.skyTop, this.pal.skyMid, this.pal.skyMid, 1);
     g.fillRect(0, 0, w, h * 0.42);
     g.fillGradientStyle(this.pal.skyMid, this.pal.skyMid, this.pal.skyBot, this.pal.skyBot, 1);
     g.fillRect(0, h * 0.4, w, h * 0.6);
+    this.backdrop.push(g);
+
     if (this.level.mood !== "storm") {
-      const sun = this.add.circle(w * 0.78, h * 0.22, 28, this.pal.accent, 0.9).setScrollFactor(0).setDepth(-39);
-      this.add.circle(sun.x, sun.y, 54, this.pal.accent, 0.18).setScrollFactor(0).setDepth(-39);
+      const sun = this.add
+        .circle(w * 0.78, h * 0.22, 28, this.pal.accent, 0.9)
+        .setScrollFactor(0)
+        .setDepth(-39);
+      const halo = this.add
+        .circle(sun.x, sun.y, 54, this.pal.accent, 0.18)
+        .setScrollFactor(0)
+        .setDepth(-39);
+      this.backdrop.push(sun, halo);
     }
     if (this.level.mood === "night") {
       for (let i = 0; i < 28; i++) {
-        this.add
-          .circle(20 + ((i * 97) % (w - 20)), 16 + ((i * 53) % 180), i % 4 === 0 ? 1.6 : 1, 0xfaf7f2, 0.7)
-          .setScrollFactor(0)
-          .setDepth(-38);
+        this.backdrop.push(
+          this.add
+            .circle(
+              20 + ((i * 97) % Math.max(1, w - 20)),
+              16 + ((i * 53) % 180),
+              i % 4 === 0 ? 1.6 : 1,
+              0xfaf7f2,
+              0.7
+            )
+            .setScrollFactor(0)
+            .setDepth(-38)
+        );
       }
     }
   }
@@ -191,9 +293,15 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
+  // ------------------------------------------------------------------- world
+
   private buildWorld() {
     this.platforms = this.physics.add.staticGroup();
     this.rails = this.physics.add.staticGroup();
+    this.porchZones = [];
+    this.coinSprites = [];
+    this.puddleSprites = [];
+    this.gustSprites = [];
 
     for (const p of this.level.platforms) {
       const group = p.dropThrough ? this.rails : this.platforms;
@@ -215,15 +323,13 @@ export class PlayScene extends Phaser.Scene {
         deco.setDisplaySize(p.w + 16, 36);
         deco.setDepth(2);
       } else if (p.kind === "ground") {
-        const top = this.add.rectangle(p.x + p.w / 2, p.y + 6, p.w, 12, 0x2f5540);
-        top.setDepth(1);
+        this.add.rectangle(p.x + p.w / 2, p.y + 6, p.w, 12, 0x2f5540).setDepth(1);
       }
     }
 
     for (const porch of this.level.porches) {
       const glow = this.add.circle(porch.x, porch.y - 36, 10, 0x6b5f56, 0.7);
       glow.setData("lit", false);
-      glow.setData("id", porch.id);
       glow.setDepth(6);
       const lamp = this.textures.exists("porch-unlit")
         ? this.add.image(porch.x, porch.y - 46, "porch-unlit").setDisplaySize(28, 40).setDepth(6)
@@ -233,9 +339,7 @@ export class PlayScene extends Phaser.Scene {
       zone.setData("glow", glow);
       zone.setData("lamp", lamp);
       zone.setData("id", porch.id);
-      this.physics.add.overlap(this.player, zone, (_pl, z) =>
-        this.lightPorch(z as Phaser.GameObjects.Zone)
-      );
+      this.porchZones.push(zone);
     }
 
     for (const coin of this.level.coins) {
@@ -253,41 +357,39 @@ export class PlayScene extends Phaser.Scene {
         ease: "Sine.inOut",
       });
       this.physics.add.existing(spr, true);
-      this.physics.add.overlap(this.player, spr, (_pl, c) =>
-        this.takeCoin(c as Phaser.GameObjects.GameObject)
-      );
+      this.coinSprites.push(spr);
     }
 
     for (const puddle of this.level.puddles) {
       const spr = this.textures.exists("puddle")
-        ? this.add.image(puddle.x + puddle.w / 2, puddle.y - 8, "puddle").setDisplaySize(puddle.w + 20, 22)
+        ? this.add
+            .image(puddle.x + puddle.w / 2, puddle.y - 8, "puddle")
+            .setDisplaySize(puddle.w + 20, 22)
         : this.add.ellipse(puddle.x + puddle.w / 2, puddle.y - 6, puddle.w, 16, 0x1a1a28, 0.85);
       spr.setDepth(5);
       this.physics.add.existing(spr, true);
-      this.physics.add.overlap(this.player, spr, () => this.hurt("puddle"));
+      this.puddleSprites.push(spr);
     }
 
     for (const gust of this.level.gusts) {
       const spr = this.add.ellipse(gust.x, gust.y, 34, 70, 0x8aa0b4, 0.22);
       spr.setDepth(8);
+      const period = gust.period ?? 1600;
       this.tweens.add({
         targets: spr,
         alpha: { from: 0.08, to: 0.38 },
         scaleX: { from: 0.7, to: 1.2 },
-        duration: gust.period ?? 1600,
+        duration: period,
         yoyo: true,
         repeat: -1,
       });
       this.physics.add.existing(spr, true);
-      this.physics.add.overlap(this.player, spr, () => {
-        if (this.time.now % (gust.period ?? 1600) < 700) this.hurt("gust");
-      });
+      this.gustSprites.push({ obj: spr, period });
     }
 
-    const finish = this.add.rectangle(this.level.finishX, 360, 18, 320, 0xc2661b, 0.55);
+    this.finishGate = this.add.rectangle(this.level.finishX, 360, 18, 320, 0xc2661b, 0.55);
     this.add.rectangle(this.level.finishX, 200, 64, 18, 0xedb56a).setDepth(4);
-    this.physics.add.existing(finish, true);
-    this.physics.add.overlap(this.player, finish, () => this.finishRun());
+    this.physics.add.existing(this.finishGate, true);
 
     if (this.level.mood === "storm") {
       const drop = this.add.graphics();
@@ -295,48 +397,96 @@ export class PlayScene extends Phaser.Scene {
       drop.fillRect(0, 0, 2, 10);
       drop.generateTexture("rain-drop", 2, 10);
       drop.destroy();
-      this.add.particles(0, 0, "rain-drop", {
-        x: { min: 0, max: this.level.length },
-        y: 0,
-        lifespan: 1400,
-        speedY: { min: 380, max: 620 },
-        speedX: { min: -80, max: -20 },
-        scale: { start: 0.6, end: 0.2 },
-        quantity: 3,
-        frequency: 30,
-      }).setDepth(20);
+      this.add
+        .particles(0, 0, "rain-drop", {
+          x: { min: 0, max: this.level.length },
+          y: 0,
+          lifespan: 1400,
+          speedY: { min: 380, max: 620 },
+          speedX: { min: -80, max: -20 },
+          scale: { start: 0.6, end: 0.2 },
+          quantity: 3,
+          frequency: 30,
+        })
+        .setDepth(20);
     }
   }
 
   private spawnPlayer() {
     const startY = (this.level.platforms[0]?.y ?? 500) - 80;
-    const key = this.textures.exists("lantern") ? "lantern" : undefined;
-    this.player = this.physics.add.sprite(90, startY, key ?? "__DEFAULT");
-    if (!key) {
+    const hasArt = this.textures.exists("lantern");
+    if (!hasArt) {
       const g = this.add.graphics();
       g.fillStyle(0xc2661b, 1);
       g.fillRoundedRect(0, 0, PLAYER_W, PLAYER_H, 8);
       g.generateTexture("lantern-fallback", PLAYER_W, PLAYER_H);
       g.destroy();
-      this.player.setTexture("lantern-fallback");
     }
-    this.player.setDisplaySize(PLAYER_W, PLAYER_H);
+    this.player = this.physics.add.sprite(
+      PLAYER_START_X,
+      startY,
+      hasArt ? "lantern" : "lantern-fallback"
+    );
+    this.applySpriteScale();
+    this.sizePlayerBody();
     this.player.setCollideWorldBounds(true);
     this.player.setDepth(10);
     this.player.setBounce(0.02);
-    this.player.body?.setSize(28, 46);
-    this.player.body?.setOffset(8, 12);
+
+    this.cameras.main.startFollow(this.player, true, 0.12, 0.08, -40, 80);
+    this.cameras.main.setDeadzone(40, 80);
+  }
+
+  /** Keep the drawn lantern at PLAYER_W x PLAYER_H whichever frame is showing. */
+  private applySpriteScale() {
+    const sx = PLAYER_W / (this.player.width || PLAYER_W);
+    const sy = PLAYER_H / (this.player.height || PLAYER_H);
+    this.player.setScale(sx, sy);
+  }
+
+  /**
+   * Arcade body sizes are in SOURCE-texture pixels, then multiplied by the
+   * sprite's scale. lantern.png is 230x384, so the old hard-coded 28x46 became
+   * a 5x7 display-pixel hitbox — small enough to miss most platforms.
+   */
+  private sizePlayerBody() {
+    const body = this.player.body as Phaser.Physics.Arcade.Body | null;
+    if (!body) return;
+    const w = this.player.width || PLAYER_W;
+    const h = this.player.height || PLAYER_H;
+    body.setSize(w * 0.56, h * 0.9);
+    body.setOffset(w * 0.22, h * 0.08);
+  }
+
+  private wireCollisions() {
     this.physics.add.collider(this.player, this.platforms);
     this.physics.add.collider(this.player, this.rails, undefined, () => {
       const body = this.player.body as Phaser.Physics.Arcade.Body;
       return body.velocity.y >= 0 && !this.player.getData("drop");
     });
-    this.cameras.main.startFollow(this.player, true, 0.12, 0.08, -40, 80);
-    this.cameras.main.setDeadzone(40, 80);
+
+    for (const zone of this.porchZones) {
+      this.physics.add.overlap(this.player, zone, () => this.lightPorch(zone));
+    }
+    for (const coin of this.coinSprites) {
+      this.physics.add.overlap(this.player, coin, () => this.takeCoin(coin));
+    }
+    for (const puddle of this.puddleSprites) {
+      this.physics.add.overlap(this.player, puddle, () => this.hurt("puddle"));
+    }
+    for (const gust of this.gustSprites) {
+      this.physics.add.overlap(this.player, gust.obj, () => {
+        if (this.runClock() % gust.period < 700) this.hurt("gust");
+      });
+    }
+    this.physics.add.overlap(this.player, this.finishGate, () => this.finishRun());
   }
+
+  // ------------------------------------------------------------------- input
 
   private bindInput() {
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
+      this.unlockAudio();
       if (this.paused || this.finished) return;
       this.swipeStart = { y: p.y, t: this.time.now };
       this.bufferUntil = this.time.now + BUFFER_MS;
@@ -345,7 +495,11 @@ export class PlayScene extends Phaser.Scene {
     });
     this.input.on("pointerup", (p: Phaser.Input.Pointer) => {
       this.holdingJump = false;
-      if (this.swipeStart && p.y - this.swipeStart.y > 48 && this.time.now - this.swipeStart.t < 420) {
+      if (
+        this.swipeStart &&
+        p.y - this.swipeStart.y > 48 &&
+        this.time.now - this.swipeStart.t < 420
+      ) {
         this.dropThrough();
       }
       this.swipeStart = null;
@@ -353,11 +507,23 @@ export class PlayScene extends Phaser.Scene {
 
     const kb = this.input.keyboard;
     kb?.on("keydown-SPACE", () => {
+      this.unlockAudio();
+      if (this.paused || this.finished) return;
       this.bufferUntil = this.time.now + BUFFER_MS;
       this.holdingJump = true;
       this.tryJump();
     });
     kb?.on("keyup-SPACE", () => {
+      this.holdingJump = false;
+    });
+    kb?.on("keydown-UP", () => {
+      this.unlockAudio();
+      if (this.paused || this.finished) return;
+      this.bufferUntil = this.time.now + BUFFER_MS;
+      this.holdingJump = true;
+      this.tryJump();
+    });
+    kb?.on("keyup-UP", () => {
       this.holdingJump = false;
     });
     kb?.on("keydown-DOWN", () => this.dropThrough());
@@ -387,6 +553,8 @@ export class PlayScene extends Phaser.Scene {
     kb?.on("keydown-ESC", () => this.bridge.onExit());
   }
 
+  // --------------------------------------------------------------------- HUD
+
   private buildHud() {
     const style: Phaser.Types.GameObjects.Text.TextStyle = {
       fontFamily: "ui-sans-serif, system-ui, sans-serif",
@@ -396,9 +564,21 @@ export class PlayScene extends Phaser.Scene {
     };
     this.hud = {
       score: this.add.text(14, 12, "0", style).setScrollFactor(0).setDepth(50),
-      lives: this.add.text(14, 34, "🏮🏮🏮", { fontSize: "16px" }).setScrollFactor(0).setDepth(50),
+      lives: this.add
+        .text(14, 34, "🏮".repeat(LIVES), { fontSize: "16px" })
+        .setScrollFactor(0)
+        .setDepth(50),
+      course: this.add
+        .text(0, 12, this.level.name, {
+          fontFamily: "ui-sans-serif, system-ui, sans-serif",
+          fontSize: "13px",
+          color: "#faeacf",
+        })
+        .setOrigin(1, 0)
+        .setScrollFactor(0)
+        .setDepth(50),
       hint: this.add
-        .text(this.scale.width / 2, this.scale.height - 28, "Tap to jump · hold longer · swipe down", {
+        .text(0, 0, "Tap to jump · tap again to float · swipe down to drop", {
           fontFamily: "ui-sans-serif, system-ui, sans-serif",
           fontSize: "13px",
           color: "#faeacf",
@@ -406,34 +586,102 @@ export class PlayScene extends Phaser.Scene {
         .setOrigin(0.5)
         .setScrollFactor(0)
         .setDepth(50),
-      barBg: this.add.rectangle(this.scale.width / 2, 8, this.scale.width - 28, 4, 0x2b2420, 0.5).setScrollFactor(0).setDepth(50),
-      bar: this.add.rectangle(14, 8, 4, 4, 0xe69a41).setOrigin(0, 0.5).setScrollFactor(0).setDepth(51),
+      barBg: this.add
+        .rectangle(0, 8, 10, 4, 0x2b2420, 0.5)
+        .setScrollFactor(0)
+        .setDepth(50),
+      bar: this.add
+        .rectangle(14, 8, 4, 4, 0xe69a41)
+        .setOrigin(0, 0.5)
+        .setScrollFactor(0)
+        .setDepth(51),
     };
-    this.add
-      .text(this.scale.width - 14, 12, this.level.name, {
-        fontFamily: "ui-sans-serif, system-ui, sans-serif",
-        fontSize: "13px",
-        color: "#faeacf",
-      })
-      .setOrigin(1, 0)
-      .setScrollFactor(0)
-      .setDepth(50);
 
-    this.time.delayedCall(4200, () => {
-      this.tweens.add({ targets: this.hud.hint, alpha: 0, duration: 600 });
+    this.time.delayedCall(5200, () => {
+      if (this.hud?.hint?.active) {
+        this.tweens.add({ targets: this.hud.hint, alpha: 0, duration: 600 });
+      }
     });
   }
 
-  private maybeMusic() {
-    if (this.cache.audio.exists("bgm")) {
+  private buildPauseVeil() {
+    const veil = this.add.rectangle(0, 0, 10, 10, 0x1b1410, 0.72).setOrigin(0.5);
+    const label = this.add
+      .text(0, 0, "Paused", {
+        fontFamily: "ui-sans-serif, system-ui, sans-serif",
+        fontSize: "24px",
+        color: "#faf7f2",
+        fontStyle: "700",
+      })
+      .setOrigin(0.5);
+    this.pauseVeil = this.add
+      .container(0, 0, [veil, label])
+      .setScrollFactor(0)
+      .setDepth(70)
+      .setVisible(false);
+    this.pauseVeil.setData("veil", veil);
+  }
+
+  /** Runs on create and on every resize — nothing here may assume a fixed size. */
+  private layout() {
+    const w = this.scale.width;
+    const h = this.scale.height;
+    this.cameras.main.setViewport(0, 0, w, h);
+    this.drawBackdrop();
+
+    if (this.hud) {
+      this.hud.course.setPosition(w - 14, 12);
+      this.hud.hint.setPosition(w / 2, h - 30);
+      this.hud.barBg.setPosition(w / 2, 8);
+      this.hud.barBg.setSize(Math.max(10, w - 28), 4);
+      this.refreshHud();
+    }
+    if (this.pauseVeil) {
+      const veil = this.pauseVeil.getData("veil") as Phaser.GameObjects.Rectangle;
+      veil.setSize(w, h);
+      this.pauseVeil.setPosition(w / 2, h / 2);
+    }
+  }
+
+  // ------------------------------------------------------------------- audio
+
+  /**
+   * Browsers keep the audio context suspended until a gesture lands. The old
+   * code started the loop inside create(), where it was always blocked.
+   */
+  private unlockAudio() {
+    if (this.audioUnlocked) return;
+    this.audioUnlocked = true;
+    const mgr = this.sound as unknown as { context?: AudioContext };
+    if (mgr.context?.state === "suspended") {
+      void mgr.context.resume().catch(() => undefined);
+    }
+    this.startMusic();
+  }
+
+  /** Safe to call from either side of the race: the gesture or the download. */
+  private startMusic() {
+    if (this.musicStarted || !this.audioUnlocked || this.muted) return;
+    if (this.finished || !this.cache.audio.exists("bgm")) return;
+    try {
       this.sound.play("bgm", { loop: true, volume: 0.28 });
+      this.musicStarted = true;
+    } catch {
+      /* audio is optional */
     }
   }
 
   private sfx(key: string, synth: () => void) {
     if (this.muted) return;
-    if (this.cache.audio.exists(key)) this.sound.play(key, { volume: 0.55 });
-    else synth();
+    if (this.cache.audio.exists(key)) {
+      try {
+        this.sound.play(key, { volume: 0.55 });
+        return;
+      } catch {
+        /* fall through to the synth */
+      }
+    }
+    synth();
   }
 
   private synthBeep(freq: number, dur = 0.12, type: OscillatorType = "triangle") {
@@ -456,26 +704,37 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
+  // ------------------------------------------------------------------- moves
+
   private tryJump() {
     if (this.paused || this.finished) return;
+    if (this.time.now > this.bufferUntil) return;
     const body = this.player.body as Phaser.Physics.Arcade.Body;
-    const grounded = body.blocked.down || body.touching.down || this.time.now < this.coyoteUntil;
-    if (!grounded || this.time.now > this.bufferUntil) return;
+    const grounded =
+      body.blocked.down || body.touching.down || this.time.now < this.coyoteUntil;
+    if (!grounded && this.airJumpsLeft <= 0) return;
+    if (!grounded) this.airJumpsLeft -= 1;
+
     body.setVelocityY(JUMP_V);
     this.coyoteUntil = 0;
     this.bufferUntil = 0;
     this.logEvent("jump");
-    if (this.textures.exists("lantern-jump")) this.player.setTexture("lantern-jump");
+    if (this.textures.exists("lantern-jump")) {
+      this.player.setTexture("lantern-jump");
+      this.applySpriteScale();
+    }
     this.sfx("sfx-jump", () => this.synthBeep(420, 0.1));
     if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(8);
   }
 
   private dropThrough() {
+    if (this.paused || this.finished) return;
     this.player.setData("drop", true);
-    this.time.delayedCall(220, () => this.player.setData("drop", false));
+    this.time.delayedCall(220, () => this.player?.setData("drop", false));
   }
 
   private lightPorch(zone: Phaser.GameObjects.Zone) {
+    if (this.finished) return;
     const glow = zone.getData("glow") as Phaser.GameObjects.Arc | undefined;
     if (!glow || glow.getData("lit")) return;
     glow.setData("lit", true);
@@ -492,9 +751,14 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private takeCoin(obj: Phaser.GameObjects.GameObject) {
+    if (this.finished) return;
     const id = obj.getData("id") as string | undefined;
     if (!id || obj.getData("gone")) return;
     obj.setData("gone", true);
+    // Disable, don't destroy: the pickup tween destroys the Image on complete,
+    // and that frees the body again. Destroying it here double-frees.
+    const body = obj.body as Phaser.Physics.Arcade.StaticBody | null;
+    if (body) body.enable = false;
     this.tweens.add({
       targets: obj,
       y: (obj as Phaser.GameObjects.Image).y - 30,
@@ -509,27 +773,31 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private hurt(kind: "puddle" | "gust") {
-    if (this.finished || this.time.now < this.invulnUntil) return;
+    if (this.finished || this.paused || this.time.now < this.invulnUntil) return;
     this.invulnUntil = this.time.now + 900;
     this.deaths += 1;
     this.lives -= 1;
     this.logEvent("die");
-    this.sfx(kind === "gust" ? "sfx-gust" : "sfx-snuff", () => this.synthBeep(140, 0.2, "sawtooth"));
+    this.sfx(kind === "gust" ? "sfx-gust" : "sfx-snuff", () =>
+      this.synthBeep(140, 0.2, "sawtooth")
+    );
     this.cameras.main.flash(120, 80, 40, 20);
     this.player.setTint(0x6b5f56);
-    this.time.delayedCall(180, () => this.player.clearTint());
+    this.time.delayedCall(180, () => this.player?.clearTint());
     if (this.lives <= 0) {
+      this.refreshHud();
       this.endRun(false);
       return;
     }
     this.player.setPosition(this.lastSafe.x, this.lastSafe.y);
     (this.player.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
+    this.airJumpsLeft = AIR_JUMPS;
     this.refreshHud();
   }
 
   private finishRun() {
     if (this.finished) return;
-    this.finished = true;
+    this.cleared = true;
     this.logEvent("finish");
     this.sfx("sfx-clear", () => this.synthBeep(740, 0.3));
     this.endRun(true);
@@ -538,9 +806,18 @@ export class PlayScene extends Phaser.Scene {
   private endRun(cleared: boolean) {
     if (this.submitting) return;
     this.submitting = true;
+    // `cleared`, not `finished`. The server rebuilds the score from the event
+    // log, and a snuffed run never logs a "finish". Flipping `finished` before
+    // scoring handed the finish bonus to every death, so the server's total
+    // disagreed and the run came back SCORE_MISMATCH.
+    this.cleared = cleared;
     this.finished = true;
+    this.paused = false;
+    this.pauseVeil.setVisible(false);
     this.physics.pause();
-    const durationMs = Math.max(1, Math.round(this.time.now - this.runStartedAt));
+    this.pushStatus();
+
+    const durationMs = Math.max(1, Math.round(this.runClock()));
     const score = this.currentScore();
     this.bridge
       .onSubmit({
@@ -549,132 +826,79 @@ export class PlayScene extends Phaser.Scene {
         durationMs,
         claimedScore: score,
       })
-      .then((result) => {
-        this.showResult(result, cleared);
-      })
-      .catch(() => {
-        this.showResult(
+      .then((result) => this.bridge.onResult(result, cleared))
+      .catch(() =>
+        this.bridge.onResult(
           {
             ok: false,
-            error: "Couldn't reach the porch. Your run is saved on this phone only.",
+            error: "Couldn't reach the porch. Your run wasn't saved.",
           },
           cleared
-        );
-      });
-  }
-
-  private showResult(
-    result: Awaited<ReturnType<GameBridge["onSubmit"]>> | { ok: false; error: string },
-    cleared: boolean
-  ) {
-    const w = this.scale.width;
-    const h = this.scale.height;
-    const panel = this.add.rectangle(w / 2, h / 2, Math.min(340, w - 28), 320, 0x2b2420, 0.94).setScrollFactor(0).setDepth(80);
-    panel.setStrokeStyle(2, 0xe69a41, 0.8);
-    const title = result.ok
-      ? cleared
-        ? "Block lit"
-        : "Lantern snuffed"
-      : "Run ended";
-    this.add
-      .text(w / 2, h / 2 - 120, title, {
-        fontFamily: "ui-sans-serif, system-ui, sans-serif",
-        fontSize: "26px",
-        color: "#faf7f2",
-        fontStyle: "700",
-      })
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(81);
-
-    const lines = result.ok
-      ? [
-          `${result.score} glow`,
-          `${result.porchesLit} porches · ${result.coins} coins`,
-          result.demo
-            ? "Log in to keep these Porch Credits"
-            : result.credits > 0
-              ? `+${result.credits} Porch Credit${result.credits === 1 ? "" : "s"}`
-              : result.reason === "DAILY_CAP"
-                ? "Daily drip is full — come back tomorrow"
-                : result.reason === "COOLDOWN"
-                  ? "Take a breath — try again in a minute"
-                  : "Nice run. The drip needs a stronger score.",
-        ]
-      : [result.error];
-
-    lines.forEach((line, i) => {
-      this.add
-        .text(w / 2, h / 2 - 60 + i * 28, line, {
-          fontFamily: "ui-sans-serif, system-ui, sans-serif",
-          fontSize: i === 0 ? "20px" : "15px",
-          color: "#faeacf",
-          align: "center",
-          wordWrap: { width: 280 },
-        })
-        .setOrigin(0.5)
-        .setScrollFactor(0)
-        .setDepth(81);
-    });
-
-    const again = this.add
-      .text(w / 2, h / 2 + 110, "Play again", {
-        fontFamily: "ui-sans-serif, system-ui, sans-serif",
-        fontSize: "16px",
-        color: "#2b2420",
-        backgroundColor: "#e69a41",
-        padding: { x: 18, y: 10 },
-      })
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(81)
-      .setInteractive({ useHandCursor: true });
-    const leave = this.add
-      .text(w / 2, h / 2 + 148, "Back to courses", {
-        fontFamily: "ui-sans-serif, system-ui, sans-serif",
-        fontSize: "14px",
-        color: "#faeacf",
-      })
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(81)
-      .setInteractive({ useHandCursor: true });
-    again.on("pointerup", () => this.bridge.onReplay());
-    leave.on("pointerup", () => this.bridge.onExit());
+        )
+      );
   }
 
   private currentScore() {
     return scoreFromCounts({
       coins: this.coins,
       porchesLit: this.porchesLit,
-      finished: this.finished,
+      finished: this.cleared,
     });
   }
 
   private refreshHud() {
+    if (!this.hud || !this.player) return;
     this.hud.score.setText(String(this.currentScore()));
     this.hud.lives.setText("🏮".repeat(Math.max(0, this.lives)) || "—");
     const progress = Phaser.Math.Clamp(this.player.x / this.level.finishX, 0, 1);
-    this.hud.bar.width = (this.scale.width - 28) * progress;
+    this.hud.bar.width = Math.max(4, (this.scale.width - 28) * progress);
+  }
+
+  /** Run time with paused stretches removed, so the server clock stays honest. */
+  private runClock() {
+    const pausedNow = this.paused ? this.time.now - this.pausedAt : 0;
+    return this.time.now - this.runStartedAt - this.pausedMs - pausedNow;
   }
 
   private logEvent(k: RunEvent["k"], id?: string) {
     this.eventsLog.push({
-      t: Math.round(this.time.now - this.runStartedAt),
+      t: Math.max(0, Math.round(this.runClock())),
       k,
       ...(id ? { id } : {}),
     });
   }
 
-  private togglePause() {
+  private togglePause(): boolean {
+    if (this.finished) return false;
     this.paused = !this.paused;
-    if (this.paused) this.physics.pause();
-    else this.physics.resume();
+    if (this.paused) {
+      this.pausedAt = this.time.now;
+      this.physics.pause();
+    } else {
+      this.pausedMs += this.time.now - this.pausedAt;
+      this.physics.resume();
+    }
+    this.pauseVeil.setVisible(this.paused);
+    this.holdingJump = false;
+    this.pushStatus();
+    return this.paused;
   }
 
-  private toggleMute() {
+  private toggleMute(): boolean {
     this.muted = !this.muted;
+    // `sound.mute` rides a WebAudio gain node that does not reliably take the
+    // change (Chromium keeps reporting gain 1 after the set), so our own flag
+    // is the source of truth: sfx() already checks it, and the looping track
+    // gets stopped outright rather than trusted to go quiet.
     this.sound.mute = this.muted;
+    if (this.muted) {
+      this.sound.stopByKey("bgm");
+      this.musicStarted = false;
+    } else {
+      this.startMusic();
+    }
+    this.pushStatus();
+    return this.muted;
   }
 
   update() {
@@ -692,23 +916,21 @@ export class PlayScene extends Phaser.Scene {
     }
     body.setVelocityX(this.dir * speed);
 
-    if (body.blocked.down || body.touching.down) {
+    const grounded = body.blocked.down || body.touching.down;
+    if (grounded) {
       this.coyoteUntil = this.time.now + COYOTE_MS;
+      this.airJumpsLeft = AIR_JUMPS;
       if (this.textures.exists("lantern") && this.player.texture.key !== "lantern") {
         this.player.setTexture("lantern");
+        this.applySpriteScale();
       }
     } else if (this.holdingJump && body.velocity.y < 0) {
       body.setVelocityY(body.velocity.y + HOLD_V * 0.016);
     }
 
     this.player.setAngle(Phaser.Math.Clamp(body.velocity.y * 0.02, -12, 14));
-    const bob = Math.sin(this.time.now / 140) * 1.4;
-    this.player.setScale(
-      (PLAYER_W / (this.player.width || PLAYER_W)) * (1 + (body.blocked.down ? 0 : 0.02)),
-      (PLAYER_H / (this.player.height || PLAYER_H)) * (1 + bob * 0.004)
-    );
 
-    if (this.player.y > 680) this.hurt("puddle");
+    if (this.player.y > WORLD_HEIGHT - 40) this.hurt("puddle");
     if (this.time.now < this.bufferUntil) this.tryJump();
     this.refreshHud();
   }

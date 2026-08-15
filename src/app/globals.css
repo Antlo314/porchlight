@@ -291,6 +291,60 @@ body::before {
   animation: quilt-flash 0.35s ease-out;
 }
 
+/* Boarded-up window: crossed planks nailed over the tile. */
+.quilt-plank {
+  background-image: repeating-linear-gradient(
+    90deg,
+    #6b4426 0px,
+    #6b4426 7px,
+    #5b381f 7px,
+    #5b381f 9px
+  );
+  border-top: 1px solid rgb(255 255 255 / 0.14);
+  border-bottom: 1px solid rgb(0 0 0 / 0.3);
+  box-shadow: 0 2px 5px rgb(0 0 0 / 0.45);
+}
+
+@keyframes quilt-spark {
+  0% {
+    opacity: 0.95;
+    transform: scale(0.4);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+
+.quilt-spark {
+  animation: quilt-spark 0.42s ease-out forwards;
+  background: radial-gradient(
+    circle,
+    rgb(255 235 190 / 0.95) 0%,
+    rgb(230 154 65 / 0.55) 45%,
+    transparent 70%
+  );
+}
+
+@keyframes quilt-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.9);
+  }
+  25% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-26px) scale(1);
+  }
+}
+
+.quilt-rise {
+  animation: quilt-rise 1s ease-out forwards;
+}
+
 @view-transition {
   navigation: auto;
 }

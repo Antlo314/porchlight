@@ -1,3 +1,4 @@
+import { minDurationFor } from "./physics";
 import { atlantaDateKey, hashSeed, mulberry32 } from "./prng";
 import type { LevelDef, LevelId, LevelPlatform, LevelProp } from "./types";
 
@@ -7,12 +8,20 @@ function ground(length: number): LevelPlatform {
   return { x: 0, y: GROUND_Y, w: length, kind: "ground" };
 }
 
-export const KIRKWOOD: LevelDef = {
+/**
+ * Derives the anti-cheat clock floor from the course's own length and mood so
+ * it can never be set above what the lantern can actually run. Hand-written
+ * floors used to reject every honest finish.
+ */
+function timed(def: Omit<LevelDef, "minDurationMs">): LevelDef {
+  return { ...def, minDurationMs: minDurationFor(def.mood, def.finishX) };
+}
+
+export const KIRKWOOD: LevelDef = timed({
   id: "kirkwood",
   name: "Kirkwood Dusk",
   blurb: "Light the first porches on the block. Tap to jump.",
   mood: "dusk",
-  minDurationMs: 16_000,
   length: 3400,
   finishX: 3180,
   platforms: [
@@ -45,14 +54,13 @@ export const KIRKWOOD: LevelDef = {
   ],
   puddles: [{ x: 1500, y: GROUND_Y, w: 70 }],
   gusts: [],
-};
+});
 
-export const GRANT_PARK: LevelDef = {
+export const GRANT_PARK: LevelDef = timed({
   id: "grant-park",
   name: "Grant Park Storm",
   blurb: "Hold to leap the gusts. Swipe down through wet rails.",
   mood: "storm",
-  minDurationMs: 20_000,
   length: 4000,
   finishX: 3780,
   platforms: [
@@ -99,14 +107,13 @@ export const GRANT_PARK: LevelDef = {
     { x: 2000, y: 240, w: 40, period: 1600 },
     { x: 2860, y: 220, w: 40, period: 1500 },
   ],
-};
+});
 
-export const EAST_ATLANTA: LevelDef = {
+export const EAST_ATLANTA: LevelDef = timed({
   id: "east-atlanta",
   name: "East Atlanta Night",
   blurb: "String-light awnings and a greedy last stretch.",
   mood: "night",
-  minDurationMs: 24_000,
   length: 4600,
   finishX: 4380,
   platforms: [
@@ -160,7 +167,7 @@ export const EAST_ATLANTA: LevelDef = {
     { x: 2400, y: 180, w: 36, period: 1300 },
     { x: 3680, y: 160, w: 36, period: 1200 },
   ],
-};
+});
 
 const HANDCRAFTED: Record<Exclude<LevelId, "daily">, LevelDef> = {
   kirkwood: KIRKWOOD,
@@ -233,12 +240,11 @@ export function buildDailyLevel(seed: string): LevelDef {
 
   coins.push({ id: "dc-end", x: length - 280, y: 360 });
 
-  return {
+  return timed({
     id: "daily",
     name: "Daily Block",
     blurb: "Today's course — the whole neighborhood runs the same one.",
     mood: rng() > 0.5 ? "storm" : "dusk",
-    minDurationMs: 20_000,
     length,
     finishX: length - 220,
     platforms,
@@ -246,7 +252,7 @@ export function buildDailyLevel(seed: string): LevelDef {
     coins,
     puddles,
     gusts,
-  };
+  });
 }
 
 export function getLevel(id: LevelId, seed?: string): LevelDef {

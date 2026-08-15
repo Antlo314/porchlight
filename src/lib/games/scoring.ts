@@ -1,4 +1,5 @@
 import { getLevel } from "./levels";
+import { minDurationFor } from "./physics";
 import type { LevelDef, LevelId, RunEvent } from "./types";
 
 export const COIN_POINTS = 50;
@@ -107,21 +108,18 @@ export function validateRun(opts: {
   if (!Number.isFinite(durationMs) || durationMs < 0 || durationMs > 15 * 60_000) {
     return { ok: false, code: "BAD_EVENTS", error: "That run clock looks wrong." };
   }
-  if (durationMs < level.minDurationMs) {
-    return {
-      ok: false,
-      code: "TOO_FAST",
-      error: "That finish was quicker than the block allows.",
-    };
-  }
 
-  const porchIds = new Set(level.porches.map((p) => p.id));
-  const coinIds = new Set(level.coins.map((c) => c.id));
+  const porchX = new Map(level.porches.map((p) => [p.id, p.x]));
+  const coinX = new Map(level.coins.map((c) => [c.id, c.x]));
+  const porchIds = new Set(porchX.keys());
+  const coinIds = new Set(coinX.keys());
   const seenPorch = new Set<string>();
   const seenCoin = new Set<string>();
   let deaths = 0;
   let finished = false;
   let jumps = 0;
+  /** Furthest point on the block the log claims the lantern reached. */
+  let reachX = 0;
 
   for (const ev of events) {
     if (ev.t > durationMs + 250) {
@@ -137,6 +135,7 @@ export function validateRun(opts: {
     }
     if (ev.k === "finish") {
       finished = true;
+      reachX = Math.max(reachX, level.finishX);
       continue;
     }
     if (ev.k === "porch") {
@@ -147,6 +146,7 @@ export function validateRun(opts: {
         return { ok: false, code: "DUP_COLLECT", error: "The same porch was lit twice." };
       }
       seenPorch.add(ev.id);
+      reachX = Math.max(reachX, porchX.get(ev.id) ?? 0);
       continue;
     }
     if (ev.k === "coin") {
@@ -157,7 +157,20 @@ export function validateRun(opts: {
         return { ok: false, code: "DUP_COLLECT", error: "The same coin was grabbed twice." };
       }
       seenCoin.add(ev.id);
+      reachX = Math.max(reachX, coinX.get(ev.id) ?? 0);
     }
+  }
+
+  // Distance floor, not a flat one. A blanket `minDurationMs` also rejected
+  // runs that ended in a puddle ten seconds in — the lantern never claimed to
+  // have gone far, so there was nothing too-fast about it. Charge only for the
+  // ground the log says was covered.
+  if (reachX > 0 && durationMs < minDurationFor(level.mood, reachX)) {
+    return {
+      ok: false,
+      code: "TOO_FAST",
+      error: "That run covered the block quicker than the lantern can move.",
+    };
   }
 
   const seconds = Math.max(1, durationMs / 1000);

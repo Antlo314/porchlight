@@ -1,17 +1,16 @@
 import { hashSeed, mulberry32 } from "@/lib/games/prng";
 import { getNight } from "./nights";
 import {
-  BOARD_SIZE,
   COLORS,
+  DEFAULT_BOARD_SIZE,
+  MAX_BOARD_SIZE,
   SHAPES,
   type Cell,
-  type Color,
   type Goal,
   type NightId,
   type Progress,
   type QuiltMove,
   type QuiltState,
-  type Shape,
   type Tile,
 } from "./types";
 
@@ -19,17 +18,27 @@ function emptyProgress(): Progress {
   return {
     matches: 0,
     trueMatches: 0,
+    boardsFreed: 0,
     byColor: { amber: 0, pine: 0, cream: 0, dusk: 0, clay: 0 },
     byShape: { lantern: 0, leaf: 0, peach: 0, key: 0, mug: 0, star: 0 },
   };
 }
 
-function inBounds(r: number, c: number) {
-  return r >= 0 && c >= 0 && r < BOARD_SIZE && c < BOARD_SIZE;
+/** Boards are square, so the grid tells us its own size. */
+function sizeOf(board: (Tile | null)[][]) {
+  return board.length;
+}
+
+function inBounds(r: number, c: number, size: number) {
+  return r >= 0 && c >= 0 && r < size && c < size;
 }
 
 export function adjacent(a: Cell, b: Cell) {
   return Math.abs(a.r - b.r) + Math.abs(a.c - b.c) === 1;
+}
+
+export function isBoarded(tile: Tile | null | undefined): boolean {
+  return Boolean(tile && tile.boards && tile.boards > 0);
 }
 
 function runKind(tiles: Tile[]): "color" | "shape" | "true" | null {
@@ -43,6 +52,7 @@ function runKind(tiles: Tile[]): "color" | "shape" | "true" | null {
 
 /** Contiguous runs of 3+ same color, and 3+ same shape. 4 and 5 count. */
 export function findMatches(board: (Tile | null)[][]) {
+  const size = sizeOf(board);
   const marked = new Set<string>();
   let trueMatches = 0;
   const groups: { cells: Cell[]; kind: "color" | "shape" | "true" }[] = [];
@@ -84,11 +94,11 @@ export function findMatches(board: (Tile | null)[][]) {
     scanAttr(cells, (t) => t.shape);
   };
 
-  for (let r = 0; r < BOARD_SIZE; r++) {
-    scanLine(Array.from({ length: BOARD_SIZE }, (_, c) => ({ r, c })));
+  for (let r = 0; r < size; r++) {
+    scanLine(Array.from({ length: size }, (_, c) => ({ r, c })));
   }
-  for (let c = 0; c < BOARD_SIZE; c++) {
-    scanLine(Array.from({ length: BOARD_SIZE }, (_, r) => ({ r, c })));
+  for (let c = 0; c < size; c++) {
+    scanLine(Array.from({ length: size }, (_, r) => ({ r, c })));
   }
 
   return { marked, groups, trueMatches };
@@ -102,12 +112,8 @@ function makeTile(rng: () => number, id: number): Tile {
   };
 }
 
-function wouldMatchAt(
-  board: (Tile | null)[][],
-  r: number,
-  c: number,
-  tile: Tile
-) {
+function wouldMatchAt(board: (Tile | null)[][], r: number, c: number, tile: Tile) {
+  const size = sizeOf(board);
   const left: Tile[] = [];
   for (let cc = c - 1; cc >= 0; cc--) {
     const t = board[r]![cc];
@@ -115,7 +121,7 @@ function wouldMatchAt(
     left.push(t);
   }
   const right: Tile[] = [];
-  for (let cc = c + 1; cc < BOARD_SIZE; cc++) {
+  for (let cc = c + 1; cc < size; cc++) {
     const t = board[r]![cc];
     if (!t) break;
     right.push(t);
@@ -127,7 +133,7 @@ function wouldMatchAt(
     up.push(t);
   }
   const down: Tile[] = [];
-  for (let rr = r + 1; rr < BOARD_SIZE; rr++) {
+  for (let rr = r + 1; rr < size; rr++) {
     const t = board[rr]![c];
     if (!t) break;
     down.push(t);
@@ -138,14 +144,14 @@ function wouldMatchAt(
   return Boolean(runKind(horiz) || runKind(vert));
 }
 
-function fillBoard(seed: string): { board: (Tile | null)[][]; nextId: number } {
+function fillBoard(seed: string, size: number): { board: (Tile | null)[][]; nextId: number } {
   const rng = mulberry32(hashSeed(`quilt:${seed}`));
-  const board: (Tile | null)[][] = Array.from({ length: BOARD_SIZE }, () =>
-    Array.from({ length: BOARD_SIZE }, () => null)
+  const board: (Tile | null)[][] = Array.from({ length: size }, () =>
+    Array.from({ length: size }, () => null)
   );
   let nextId = 1;
-  for (let r = 0; r < BOARD_SIZE; r++) {
-    for (let c = 0; c < BOARD_SIZE; c++) {
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
       let tile = makeTile(rng, nextId++);
       let guard = 0;
       while (wouldMatchAt(board, r, c, tile) && guard++ < 20) {
@@ -157,21 +163,23 @@ function fillBoard(seed: string): { board: (Tile | null)[][]; nextId: number } {
   return { board, nextId };
 }
 
+/**
+ * Everything falls, boarded tiles included — they slide down the facade with
+ * their boards still on. Anchoring them instead would strand unfillable holes
+ * underneath, since nothing above could drop past to fill them.
+ */
 function gravity(board: (Tile | null)[][], rng: () => number, nextId: number) {
+  const size = sizeOf(board);
   let id = nextId;
-  for (let c = 0; c < BOARD_SIZE; c++) {
+  for (let c = 0; c < size; c++) {
     const stack: Tile[] = [];
-    for (let r = BOARD_SIZE - 1; r >= 0; r--) {
+    for (let r = size - 1; r >= 0; r--) {
       const t = board[r]![c];
       if (t) stack.push(t);
     }
-    for (let r = BOARD_SIZE - 1; r >= 0; r--) {
-      const fromStack = stack[BOARD_SIZE - 1 - r];
-      if (fromStack) {
-        board[r]![c] = fromStack;
-      } else {
-        board[r]![c] = makeTile(rng, id++);
-      }
+    for (let r = size - 1; r >= 0; r--) {
+      const fromStack = stack[size - 1 - r];
+      board[r]![c] = fromStack ?? makeTile(rng, id++);
     }
   }
   return id;
@@ -188,24 +196,49 @@ function applyClears(state: QuiltState, rng: () => number): QuiltState {
     byShape: { ...state.progress.byShape },
   };
   let score = state.score;
+  const firstCleared: Cell[] = [];
 
   while (guard++ < 20) {
     const { marked, groups, trueMatches } = findMatches(board);
     if (marked.size === 0) break;
-    combo += 1;
-    progress.matches += groups.length;
-    progress.trueMatches += trueMatches;
+
+    let clearedCount = 0;
+    let boardsStripped = 0;
+    let boardsFreed = 0;
+    const cleared: Cell[] = [];
+
     for (const key of marked) {
-      const [r, c] = key.split(",").map(Number);
+      const [r, c] = key.split(",").map(Number) as [number, number];
       const tile = board[r]![c];
-      if (tile) {
-        progress.byColor[tile.color] += 1;
-        progress.byShape[tile.shape] += 1;
+      if (!tile) continue;
+      if (isBoarded(tile)) {
+        const left = (tile.boards ?? 0) - 1;
+        board[r]![c] = { ...tile, boards: left };
+        boardsStripped += 1;
+        if (left <= 0) boardsFreed += 1;
+        continue;
       }
+      progress.byColor[tile.color] += 1;
+      progress.byShape[tile.shape] += 1;
       board[r]![c] = null;
+      cleared.push({ r, c });
+      clearedCount += 1;
     }
-    const base = marked.size * 20 + trueMatches * 80;
-    score += base * combo;
+
+    progress.boardsFreed += boardsFreed;
+
+    // Nothing moved and no board came off — stop rather than spin the guard.
+    if (clearedCount === 0 && boardsStripped === 0) break;
+
+    if (clearedCount > 0) {
+      combo += 1;
+      progress.matches += groups.length;
+      progress.trueMatches += trueMatches;
+      if (guard === 1) firstCleared.push(...cleared);
+    }
+
+    const multiplier = Math.max(1, combo);
+    score += (clearedCount * 20 + trueMatches * 80 + boardsStripped * 30) * multiplier;
     nextId = gravity(board, rng, nextId);
   }
 
@@ -216,17 +249,45 @@ function applyClears(state: QuiltState, rng: () => number): QuiltState {
     progress,
     score,
     combo,
+    lastCleared: firstCleared,
   };
+}
+
+/** Deterministically nail boards onto `count` cells. */
+function placeBoards(
+  board: (Tile | null)[][],
+  seed: string,
+  count: number,
+  layers: number
+) {
+  const size = sizeOf(board);
+  const cells: Cell[] = [];
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) cells.push({ r, c });
+  }
+  const rng = mulberry32(hashSeed(`quilt-boards:${seed}`));
+  for (let i = cells.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    const tmp = cells[i]!;
+    cells[i] = cells[j]!;
+    cells[j] = tmp;
+  }
+  for (const cell of cells.slice(0, Math.min(count, cells.length))) {
+    const tile = board[cell.r]![cell.c];
+    if (tile) board[cell.r]![cell.c] = { ...tile, boards: layers };
+  }
 }
 
 export function createState(nightId: NightId, seed: string): QuiltState {
   const night = getNight(nightId);
   if (!night) throw new Error("unknown night");
-  const { board, nextId } = fillBoard(seed);
+  const size = night.size ?? DEFAULT_BOARD_SIZE;
+  const { board, nextId } = fillBoard(seed, size);
   const rng = mulberry32(hashSeed(`quilt-fill:${seed}`));
   const base: QuiltState = {
     nightId,
     seed,
+    size,
     board,
     movesLeft: night.moves,
     score: 0,
@@ -234,9 +295,22 @@ export function createState(nightId: NightId, seed: string): QuiltState {
     progress: emptyProgress(),
     nextId,
     failedSwaps: 0,
+    lastCleared: [],
   };
-  // opening board should be quiet
-  return { ...base, board: applyClears({ ...base, score: 0 }, rng).board, score: 0, progress: emptyProgress() };
+  // The opening board should be quiet: settle any accidental runs, then nail
+  // the boards on so they can't be cleared before the player has moved.
+  const quiet = applyClears({ ...base, score: 0 }, rng);
+  const settled = quiet.board.map((row) => row.slice());
+  if (night.boards) placeBoards(settled, seed, night.boards, night.boardLayers ?? 1);
+  return {
+    ...base,
+    board: settled,
+    nextId: quiet.nextId,
+    score: 0,
+    combo: 0,
+    progress: emptyProgress(),
+    lastCleared: [],
+  };
 }
 
 export function goalsMet(state: QuiltState): boolean {
@@ -248,33 +322,40 @@ export function goalsMet(state: QuiltState): boolean {
 export function goalCount(state: QuiltState, g: Goal): number {
   if (g.kind === "matches") return state.progress.matches;
   if (g.kind === "true") return state.progress.trueMatches;
+  if (g.kind === "boards") return state.progress.boardsFreed;
+  if (g.kind === "score") return state.score;
   if (g.kind === "color") return state.progress.byColor[g.color];
   return state.progress.byShape[g.shape];
 }
 
 export function goalLabel(g: Goal): string {
-  if (g.kind === "matches") return `${g.n} matches`;
-  if (g.kind === "true") return `${g.n} true stitches`;
-  if (g.kind === "color") return `${g.n} ${g.color}`;
-  return `${g.n} ${g.shape}s`;
+  if (g.kind === "matches") return "matches";
+  if (g.kind === "true") return "true stitches";
+  if (g.kind === "boards") return "boards off";
+  if (g.kind === "score") return "glow";
+  if (g.kind === "color") return g.color;
+  return `${g.shape}s`;
 }
 
 export function findHint(board: (Tile | null)[][]): { a: Cell; b: Cell } | null {
+  const size = sizeOf(board);
   const dirs = [
     { dr: 0, dc: 1 },
     { dr: 1, dc: 0 },
   ];
-  for (let r = 0; r < BOARD_SIZE; r++) {
-    for (let c = 0; c < BOARD_SIZE; c++) {
-      if (!board[r]![c]) continue;
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      const here = board[r]![c];
+      if (!here || isBoarded(here)) continue;
       for (const { dr, dc } of dirs) {
         const nr = r + dr;
         const nc = c + dc;
-        if (!inBounds(nr, nc) || !board[nr]![nc]) continue;
+        if (!inBounds(nr, nc, size)) continue;
+        const there = board[nr]![nc];
+        if (!there || isBoarded(there)) continue;
         const copy = board.map((row) => row.slice());
-        const tmp = copy[r]![c];
-        copy[r]![c] = copy[nr]![nc];
-        copy[nr]![nc] = tmp;
+        copy[r]![c] = there;
+        copy[nr]![nc] = here;
         if (findMatches(copy).marked.size > 0) {
           return { a: { r, c }, b: { r: nr, c: nc } };
         }
@@ -286,28 +367,29 @@ export function findHint(board: (Tile | null)[][]): { a: Cell; b: Cell } | null 
 
 export type SwapResult =
   | { ok: true; state: QuiltState; cleared: boolean }
-  | { ok: false; reason: "not-adjacent" | "no-match" | "no-moves" | "done" };
+  | { ok: false; reason: "not-adjacent" | "no-match" | "no-moves" | "done" | "boarded" };
 
 export function swap(state: QuiltState, a: Cell, b: Cell): SwapResult {
+  const size = sizeOf(state.board);
   if (state.movesLeft <= 0) return { ok: false, reason: "no-moves" };
   if (goalsMet(state)) return { ok: false, reason: "done" };
-  if (!adjacent(a, b) || !inBounds(a.r, a.c) || !inBounds(b.r, b.c)) {
+  if (!adjacent(a, b) || !inBounds(a.r, a.c, size) || !inBounds(b.r, b.c, size)) {
     return { ok: false, reason: "not-adjacent" };
   }
   const board = state.board.map((row) => row.slice());
   const ta = board[a.r]![a.c];
   const tb = board[b.r]![b.c];
   if (!ta || !tb) return { ok: false, reason: "no-match" };
+  if (isBoarded(ta) || isBoarded(tb)) return { ok: false, reason: "boarded" };
   board[a.r]![a.c] = tb;
   board[b.r]![b.c] = ta;
   const { marked } = findMatches(board);
   if (marked.size === 0) {
-    return {
-      ok: false,
-      reason: "no-match",
-    };
+    return { ok: false, reason: "no-match" };
   }
-  const rng = mulberry32(hashSeed(`quilt-play:${state.seed}:${state.movesLeft}:${a.r}${a.c}${b.r}${b.c}`));
+  const rng = mulberry32(
+    hashSeed(`quilt-play:${state.seed}:${state.movesLeft}:${a.r}${a.c}${b.r}${b.c}`)
+  );
   const next = applyClears(
     {
       ...state,
@@ -333,7 +415,7 @@ export function replay(nightId: NightId, seed: string, moves: QuiltMove[]): Quil
 }
 
 export function parseMoves(raw: unknown): QuiltMove[] | null {
-  if (!Array.isArray(raw) || raw.length > 80) return null;
+  if (!Array.isArray(raw) || raw.length > 120) return null;
   const out: QuiltMove[] = [];
   for (const item of raw) {
     if (!item || typeof item !== "object") return null;
@@ -341,7 +423,7 @@ export function parseMoves(raw: unknown): QuiltMove[] | null {
     const b = (item as { b?: Cell }).b;
     if (!a || !b) return null;
     if (![a.r, a.c, b.r, b.c].every((n) => Number.isInteger(n))) return null;
-    if (![a.r, a.c, b.r, b.c].every((n) => n >= 0 && n < BOARD_SIZE)) return null;
+    if (![a.r, a.c, b.r, b.c].every((n) => n >= 0 && n < MAX_BOARD_SIZE)) return null;
     out.push({ a: { r: a.r, c: a.c }, b: { r: b.r, c: b.c } });
   }
   return out;

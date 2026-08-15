@@ -4,11 +4,13 @@ import { loadQuiltHub } from "./actions";
 
 export const metadata = {
   title: "Games",
-  description: "Ember's Quilt — match color or shape, light the porches, win the week.",
+  description:
+    "Light the Block and Ember's Quilt — light Atlanta porches and earn Porch Credits.",
   openGraph: {
-    title: "Ember's Quilt",
-    description: "Match three. Stitch the quilt. 1st–3rd win Porch Credits each week.",
-    images: [{ url: "/images/quilt-hub.jpg", width: 1200, height: 630 }],
+    title: "Porchlight Games",
+    description:
+      "Light the Block: run the stoops as the porch lantern. Ember's Quilt: fifteen nights of stitching. 1st–3rd win Porch Credits each week.",
+    images: [{ url: "/images/games-og.jpg", width: 1200, height: 630 }],
   },
 };
 

@@ -4,12 +4,14 @@
  *   npx tsx scripts/test-game-scoring.ts
  */
 import { getLevel } from "../src/lib/games/levels";
+import { fastestClearMs } from "../src/lib/games/physics";
 import {
   creditsForRun,
   parseEvents,
   scoreFromCounts,
   validateRun,
 } from "../src/lib/games/scoring";
+import { LEVEL_IDS } from "../src/lib/games/types";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -97,6 +99,79 @@ const backwards = parseEvents([
   { t: 1000, k: "jump" },
 ]);
 check("out-of-order events rejected", backwards === null);
+
+// Regression: the anti-cheat floor used to sit ABOVE the fastest run the
+// lantern can physically make, so every honest clear came back TOO_FAST.
+for (const id of LEVEL_IDS) {
+  const lvl = getLevel(id, "2026-08-14:test");
+  const fastest = Math.round(fastestClearMs(lvl.mood, lvl.finishX));
+  const clean = validateRun({
+    level: lvl,
+    events: [{ t: fastest, k: "finish" }],
+    durationMs: fastest,
+  });
+  check(
+    `${id}: a flat-out clean finish is accepted`,
+    clean.ok,
+    `fastest possible ${fastest}ms, floor ${lvl.minDurationMs}ms`
+  );
+  const cheated = validateRun({
+    level: lvl,
+    events: [{ t: 1500, k: "finish" }],
+    durationMs: 1500,
+  });
+  check(
+    `${id}: an impossible 1.5s finish is still rejected`,
+    !cheated.ok && "code" in cheated && cheated.code === "TOO_FAST"
+  );
+}
+
+// Regression: a run that ends in a puddle claims no ground, so the distance
+// floor must not touch it. The old flat floor rejected every early death.
+const earlySnuff = parseEvents([
+  { t: 900, k: "jump" },
+  { t: 2400, k: "porch", id: "k1" },
+  { t: 3100, k: "coin", id: "kc1" },
+  { t: 4000, k: "die" },
+  { t: 4500, k: "die" },
+  { t: 5000, k: "die" },
+]);
+const snuffScore = scoreFromCounts({ coins: 1, porchesLit: 1, finished: false });
+const snuffed = validateRun({
+  level: kirkwood,
+  events: earlySnuff ?? [],
+  durationMs: 5200,
+  claimedScore: snuffScore,
+});
+check(
+  "a run snuffed near the start is accepted",
+  snuffed.ok,
+  !snuffed.ok ? snuffed.code : ""
+);
+
+// Regression: the scene used to flip `finished` before scoring, so every
+// death-ended run claimed the +200 finish bonus the server never saw.
+const phantomFinish = validateRun({
+  level: kirkwood,
+  events: earlySnuff ?? [],
+  durationMs: 5200,
+  claimedScore: scoreFromCounts({ coins: 1, porchesLit: 1, finished: true }),
+});
+check(
+  "claiming the finish bonus without a finish event is rejected",
+  !phantomFinish.ok && "code" in phantomFinish && phantomFinish.code === "SCORE_MISMATCH"
+);
+
+// Lighting the last porch on the block still costs the walk to get there.
+const teleport = validateRun({
+  level: kirkwood,
+  events: [{ t: 1200, k: "porch", id: "k6" }],
+  durationMs: 1400,
+});
+check(
+  "a far porch lit in 1.4s is rejected",
+  !teleport.ok && "code" in teleport && teleport.code === "TOO_FAST"
+);
 
 const dailyA = getLevel("daily", "2026-08-13:test");
 const dailyB = getLevel("daily", "2026-08-13:test");
