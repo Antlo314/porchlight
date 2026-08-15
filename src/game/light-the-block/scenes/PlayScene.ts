@@ -16,8 +16,17 @@ import {
   SPRING_V,
   WORLD_HEIGHT,
 } from "@/lib/games/physics";
+import {
+  AIR_CONTROL,
+  GROUND_Y,
+  ICE_ACCEL,
+  ICE_FRICTION,
+  MOVE_ACCEL,
+  MOVE_FRICTION,
+} from "@/lib/games/physics";
 import { scoreFromCounts } from "@/lib/games/scoring";
 import type { LevelDef, LevelPlatform, RunEvent } from "@/lib/games/types";
+import { GameMusic } from "../music";
 import type { GameBridge, GameControls, RunStatusSnapshot } from "../boot";
 
 type MoodPalette = {
@@ -30,7 +39,25 @@ type MoodPalette = {
   accent: number;
 };
 
-const PALETTES: Record<LevelDef["mood"], MoodPalette> = {
+const PALETTES: Record<LevelDef["theme"], MoodPalette> = {
+  dawn: {
+    skyTop: 0x6b4a68,
+    skyMid: 0xc2661b,
+    skyBot: 0xf6dcae,
+    far: 0x3a3050,
+    mid: 0x2b2420,
+    ground: 0x7a3f1c,
+    accent: 0xffd08a,
+  },
+  fog: {
+    skyTop: 0x515f66,
+    skyMid: 0x8a9798,
+    skyBot: 0xc9cfc8,
+    far: 0x5d6a68,
+    mid: 0x3c4140,
+    ground: 0x4a4a44,
+    accent: 0xdfe6e0,
+  },
   dusk: {
     skyTop: 0x3a2a4a,
     skyMid: 0xc2661b,
@@ -123,12 +150,18 @@ export class PlayScene extends Phaser.Scene {
   private submitting = false;
   private paused = false;
   private muted = false;
-  private classic = false;
   private audioUnlocked = false;
   private musicStarted = false;
-  private dir = 1;
+  /** Held direction from thumb or keyboard. The lantern no longer auto-runs. */
+  private heldLeft = false;
+  private heldRight = false;
+  private facing = 1;
   private onIce = false;
   private wasGrounded = true;
+  private music: GameMusic | null = null;
+
+  private checkpointZones: Phaser.GameObjects.GameObject[] = [];
+  private guideArrow!: Phaser.GameObjects.Text;
 
   private coyoteUntil = 0;
   private bufferUntil = 0;
@@ -174,7 +207,7 @@ export class PlayScene extends Phaser.Scene {
   create() {
     this.bridge = this.game.registry.get("bridge") as GameBridge;
     this.level = getLevel(this.bridge.levelId, this.bridge.seed);
-    this.pal = PALETTES[this.level.mood];
+    this.pal = PALETTES[this.level.theme] ?? PALETTES.dusk;
     this.runStartedAt = this.time.now;
     this.lastSafe = { x: PLAYER_START_X, y: this.level.platforms[0]!.y - 60 };
 
@@ -189,6 +222,7 @@ export class PlayScene extends Phaser.Scene {
     // `undefined` — Phaser silently drops those, so the lantern fell through
     // the whole block and the run was over before a tap could register.
     this.buildWorld();
+    this.drawGuides();
     this.spawnPlayer();
     this.buildParticles();
     this.wireCollisions();
@@ -200,6 +234,8 @@ export class PlayScene extends Phaser.Scene {
     this.scale.on("resize", this.layout, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off("resize", this.layout, this);
+      this.music?.destroy();
+      this.music = null;
     });
 
     this.cameras.main.fadeIn(420, 0, 0, 0);
@@ -217,7 +253,6 @@ export class PlayScene extends Phaser.Scene {
       ["sfx-gust", "gust"],
       ["sfx-snuff", "snuff"],
       ["sfx-clear", "clear"],
-      ["bgm", "dusk-loop"],
     ];
     let queued = 0;
     for (const [key, file] of clips) {
@@ -226,7 +261,6 @@ export class PlayScene extends Phaser.Scene {
       queued += 1;
     }
     if (queued === 0) return;
-    this.load.once(Phaser.Loader.Events.COMPLETE, () => this.startMusic());
     this.load.start();
   }
 
@@ -243,6 +277,11 @@ export class PlayScene extends Phaser.Scene {
       },
       jumpEnd: () => {
         this.holdingJump = false;
+      },
+      move: (dir) => {
+        this.unlockAudio();
+        this.heldLeft = dir < 0;
+        this.heldRight = dir > 0;
       },
       drop: () => {
         this.unlockAudio();
@@ -492,6 +531,18 @@ export class PlayScene extends Phaser.Scene {
       this.switchPads.push(pad);
     }
 
+    for (const cp of this.level.checkpoints) {
+      const post = this.add.rectangle(cp.x, cp.y - 40, 8, 80, 0x6b5f56, 1).setDepth(4);
+      const lamp = this.add.circle(cp.x, cp.y - 86, 11, 0x6b5f56, 0.85).setDepth(5);
+      const zone = this.add.zone(cp.x, cp.y - 50, 60, 110);
+      this.physics.add.existing(zone, true);
+      zone.setData("id", cp.id);
+      zone.setData("post", post);
+      zone.setData("lamp", lamp);
+      zone.setData("taken", false);
+      this.checkpointZones.push(zone);
+    }
+
     for (const gate of this.level.gates) {
       const bar = this.add.rectangle(gate.x, gate.y - gate.h / 2, 18, gate.h, 0x8aa0b4, 0.95);
       bar.setStrokeStyle(2, 0xfaf7f2, 0.6);
@@ -635,6 +686,9 @@ export class PlayScene extends Phaser.Scene {
     }
     for (const zone of this.porchZones) {
       this.physics.add.overlap(this.player, zone, () => this.lightPorch(zone));
+    }
+    for (const cp of this.checkpointZones) {
+      this.physics.add.overlap(this.player, cp, () => this.takeCheckpoint(cp));
     }
     for (const coin of this.coinSprites) {
       this.physics.add.overlap(this.player, coin, () => this.takeCoin(coin));
@@ -832,22 +886,6 @@ export class PlayScene extends Phaser.Scene {
     kb?.on("keyup-W", () => (this.holdingJump = false));
     kb?.on("keydown-DOWN", () => this.dropThrough());
     kb?.on("keydown-S", () => this.dropThrough());
-    kb?.on("keydown-LEFT", () => {
-      this.classic = true;
-      this.dir = -1;
-    });
-    kb?.on("keydown-RIGHT", () => {
-      this.classic = true;
-      this.dir = 1;
-    });
-    kb?.on("keydown-A", () => {
-      this.classic = true;
-      this.dir = -1;
-    });
-    kb?.on("keydown-D", () => {
-      this.classic = true;
-      this.dir = 1;
-    });
     this.cursors.left = kb?.addKey("LEFT");
     this.cursors.right = kb?.addKey("RIGHT");
     this.cursors.a = kb?.addKey("A");
@@ -902,11 +940,38 @@ export class PlayScene extends Phaser.Scene {
         .setDepth(51),
     };
 
+    this.guideArrow = this.add
+      .text(0, 0, "▶", { fontSize: "30px", color: "#ffe9b8" })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(52)
+      .setAlpha(0.85)
+      .setVisible(false);
+    this.tweens.add({
+      targets: this.guideArrow,
+      alpha: { from: 0.85, to: 0.35 },
+      duration: 700,
+      yoyo: true,
+      repeat: -1,
+    });
+
     this.time.delayedCall(5200, () => {
       if (this.hud?.hint?.active) {
         this.tweens.add({ targets: this.hud.hint, alpha: 0, duration: 600 });
       }
     });
+  }
+
+  /** Chevrons painted on the ground so the way forward reads at a glance. */
+  private drawGuides() {
+    for (let x = 420; x < this.level.finishX - 300; x += 620) {
+      const g = this.add.text(x, GROUND_Y - 26, "›››", {
+        fontFamily: "ui-sans-serif, system-ui, sans-serif",
+        fontSize: "22px",
+        color: "#ffe9b8",
+      });
+      g.setOrigin(0.5).setAlpha(0.28).setDepth(3);
+    }
   }
 
   private buildPauseVeil() {
@@ -959,15 +1024,24 @@ export class PlayScene extends Phaser.Scene {
     this.startMusic();
   }
 
+  /**
+   * The score is synthesised live rather than streamed from a file, so each
+   * theme is its own progression and nothing has to be downloaded.
+   */
   private startMusic() {
-    if (this.musicStarted || !this.audioUnlocked || this.muted) return;
-    if (this.finished || !this.cache.audio.exists("bgm")) return;
-    try {
-      this.sound.play("bgm", { loop: true, volume: 0.28 });
-      this.musicStarted = true;
-    } catch {
-      /* audio is optional */
+    if (this.musicStarted || !this.audioUnlocked || this.muted || this.finished) return;
+    if (!this.music) {
+      this.music = new GameMusic(
+        () => (this.sound as unknown as { context?: AudioContext }).context ?? null
+      );
     }
+    this.music.start(this.level.theme);
+    this.musicStarted = true;
+  }
+
+  private stopMusic() {
+    this.music?.stop();
+    this.musicStarted = false;
   }
 
   private sfx(key: string, synth: () => void) {
@@ -1061,11 +1135,50 @@ export class PlayScene extends Phaser.Scene {
     this.sparks.emitParticleAt(zone.x, zone.y - 30, 12);
     this.porchesLit += 1;
     this.logEvent("porch", zone.getData("id"));
-    this.lastSafe = { x: zone.x, y: zone.y - 30 };
     this.sfx("sfx-ignite", () => this.synthBeep(620, 0.18));
     this.cameras.main.shake(90, 0.003);
     if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(12);
     this.refreshHud();
+  }
+
+  /** Respawn point. Only ever moves forward — never back down the block. */
+  private takeCheckpoint(zone: Phaser.GameObjects.GameObject) {
+    if (this.finished || zone.getData("taken")) return;
+    const z = zone as Phaser.GameObjects.Zone;
+    if (z.x < this.lastSafe.x) return;
+    zone.setData("taken", true);
+    const lamp = zone.getData("lamp") as Phaser.GameObjects.Arc;
+    const post = zone.getData("post") as Phaser.GameObjects.Rectangle;
+    lamp.setFillStyle(0xe69a41, 1);
+    post.setFillStyle(0x8a5a2b, 1);
+    this.tweens.add({ targets: lamp, scale: 1.6, yoyo: true, duration: 220 });
+    this.sparks.emitParticleAt(z.x, z.y - 86, 12);
+    this.lastSafe = { x: z.x, y: z.y - 40 };
+    this.sfx("sfx-ignite", () => this.synthBeep(700, 0.16, "sine"));
+    this.cameras.main.shake(90, 0.003);
+    this.flashBanner("Checkpoint");
+  }
+
+  /** Short centred message for things the HUD can't say. */
+  private flashBanner(text: string) {
+    const t = this.add
+      .text(this.scale.width / 2, this.scale.height * 0.32, text, {
+        fontFamily: "ui-sans-serif, system-ui, sans-serif",
+        fontSize: "22px",
+        color: "#ffe9b8",
+        fontStyle: "700",
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(60);
+    this.tweens.add({
+      targets: t,
+      y: t.y - 30,
+      alpha: 0,
+      duration: 1100,
+      ease: "Quad.out",
+      onComplete: () => t.destroy(),
+    });
   }
 
   private takeCoin(obj: Phaser.GameObjects.GameObject) {
@@ -1139,6 +1252,7 @@ export class PlayScene extends Phaser.Scene {
     this.paused = false;
     this.pauseVeil.setVisible(false);
     this.physics.pause();
+    this.stopMusic();
     this.pushStatus();
 
     const durationMs = Math.max(1, Math.round(this.runClock()));
@@ -1214,12 +1328,8 @@ export class PlayScene extends Phaser.Scene {
   private toggleMute(): boolean {
     this.muted = !this.muted;
     this.sound.mute = this.muted;
-    if (this.muted) {
-      this.sound.stopByKey("bgm");
-      this.musicStarted = false;
-    } else {
-      this.startMusic();
-    }
+    if (this.muted) this.stopMusic();
+    else this.startMusic();
     this.pushStatus();
     return this.muted;
   }
@@ -1287,26 +1397,15 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
-  update() {
+  update(_time: number, delta: number) {
     if (!this.player || this.finished || this.paused) return;
 
     this.stepMovingBoards();
     this.stepBlinkingBoards();
 
     const body = this.player.body as Phaser.Physics.Arcade.Body;
-    const speed = RUN_SPEED[this.level.mood];
-    if (this.classic) {
-      const left = !!(this.cursors.left?.isDown || this.cursors.a?.isDown);
-      const right = !!(this.cursors.right?.isDown || this.cursors.d?.isDown);
-      if (left) this.dir = -1;
-      else if (right) this.dir = 1;
-      else this.dir = 0;
-    } else {
-      this.dir = 1;
-    }
-    body.setVelocityX(this.dir * speed);
-
     const grounded = body.blocked.down || body.touching.down;
+    this.driveHorizontal(body, grounded, delta);
     if (grounded) {
       this.coyoteUntil = this.time.now + COYOTE_MS;
       this.airJumpsLeft = AIR_JUMPS;
@@ -1329,9 +1428,86 @@ export class PlayScene extends Phaser.Scene {
 
     this.carryRider();
     this.player.setAngle(Phaser.Math.Clamp(body.velocity.y * 0.02, -12, 14));
+    this.player.setFlipX(this.facing < 0);
+    this.updateGuide();
 
     if (this.player.y > WORLD_HEIGHT - 40) this.hurt("puddle");
     if (this.time.now < this.bufferUntil) this.tryJump();
     this.refreshHud();
+  }
+
+  /**
+   * Thumb-driven acceleration rather than a fixed auto-run. Top speed is still
+   * RUN_SPEED — the validator's clock floor is derived from it, so letting the
+   * player exceed it would make honest runs land before the floor allows.
+   */
+  private driveHorizontal(
+    body: Phaser.Physics.Arcade.Body,
+    grounded: boolean,
+    deltaMs: number
+  ) {
+    const max = RUN_SPEED[this.level.mood];
+    const keyLeft = !!(this.cursors.left?.isDown || this.cursors.a?.isDown);
+    const keyRight = !!(this.cursors.right?.isDown || this.cursors.d?.isDown);
+    const left = this.heldLeft || keyLeft;
+    const right = this.heldRight || keyRight;
+    const want = (right ? 1 : 0) - (left ? 1 : 0);
+
+    // Frame delta comes from update()'s own argument, not game.loop — the loop
+    // value is stale whenever the game is stepped by hand, and a zero dt means
+    // the lantern silently refuses to accelerate.
+    const dt = Math.min(0.05, Math.max(0.001, deltaMs / 1000));
+    const accel = (this.onIce && grounded ? ICE_ACCEL : MOVE_ACCEL) * (grounded ? 1 : AIR_CONTROL);
+    const friction = this.onIce && grounded ? ICE_FRICTION : MOVE_FRICTION;
+    let vx = body.velocity.x;
+
+    if (want !== 0) {
+      vx += want * accel * dt;
+      this.facing = want;
+    } else {
+      const drop = friction * dt;
+      vx = Math.abs(vx) <= drop ? 0 : vx - Math.sign(vx) * drop;
+    }
+    body.setVelocityX(Phaser.Math.Clamp(vx, -max, max));
+  }
+
+  /** Points at the next thing worth walking toward, so nobody wanders. */
+  private updateGuide() {
+    if (!this.guideArrow) return;
+    const target = this.nextObjectiveX();
+    if (target === null) {
+      this.guideArrow.setVisible(false);
+      return;
+    }
+    const cam = this.cameras.main;
+    const onScreen = target > cam.scrollX + 40 && target < cam.scrollX + cam.width - 40;
+    if (onScreen) {
+      this.guideArrow.setVisible(false);
+      return;
+    }
+    const right = target > this.player.x;
+    this.guideArrow.setVisible(true);
+    this.guideArrow.setText(right ? "▶" : "◀");
+    this.guideArrow.setPosition(right ? cam.width - 26 : 26, cam.height / 2);
+  }
+
+  /** Nearest unlit porch, then an uncollected key, then the ribbon. */
+  private nextObjectiveX(): number | null {
+    let best: number | null = null;
+    for (const z of this.porchZones) {
+      const glow = z.getData("glow") as Phaser.GameObjects.Arc | undefined;
+      if (glow?.getData("lit")) continue;
+      if (best === null || Math.abs(z.x - this.player.x) < Math.abs(best - this.player.x)) {
+        best = z.x;
+      }
+    }
+    for (const k of this.keySprites) {
+      if (!k.active || k.getData("gone")) continue;
+      const kx = (k as Phaser.GameObjects.Arc).x;
+      if (best === null || Math.abs(kx - this.player.x) < Math.abs(best - this.player.x)) {
+        best = kx;
+      }
+    }
+    return best ?? this.level.finishX;
   }
 }

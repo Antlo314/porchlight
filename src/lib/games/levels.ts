@@ -42,6 +42,7 @@ class Course {
   keys: LevelProp[] = [];
   switches: LevelSwitch[] = [];
   gates: LevelGate[] = [];
+  checkpoints: LevelProp[] = [];
 
   constructor(private prefix: string) {}
 
@@ -130,6 +131,13 @@ class Course {
     return this;
   }
 
+  /** A lamp you touch once; dying sends you back here instead of the start. */
+  checkpoint() {
+    this.checkpoints.push({ id: this.id("cp"), x: this.x, y: GROUND_Y });
+    this.x += 220;
+    return this;
+  }
+
   /**
    * Pressure plate on the ground, then the gate it opens further along. The
    * run-up gets a coin so the stretch between plate and bars isn't dead ground.
@@ -151,6 +159,7 @@ class Course {
     scene: string;
     teaches: string;
     mood: LevelDef["mood"];
+    theme: LevelDef["theme"];
     tail?: number;
   }): LevelDef {
     const finishX = this.x + (meta.tail ?? 260);
@@ -170,6 +179,7 @@ class Course {
       keys: this.keys,
       switches: this.switches,
       gates: this.gates,
+      checkpoints: this.checkpoints,
     };
   }
 }
@@ -182,22 +192,36 @@ export const KIRKWOOD: LevelDef = (() => {
   // Teach: flat ground, one low ledge, nothing to lose.
   c.coin(90).ledge({ y: 430, porch: true, coin: true }).gap(80);
   c.ledge({ y: 420, porch: true }).gap(120);
+  c.checkpoint();
   // Test: the same hop with a puddle underneath it.
   c.puddle(80).ledge({ y: 400, porch: true, coin: true }).gap(60);
   c.puddle(90).coin(150).ledge({ y: 380, porch: true }).gap(100);
+  c.ledge({ y: 410, w: 180, coin: true }).gap(120);
+  c.puddle(80).ledge({ y: 390, porch: true, coin: true }).gap(140);
+  c.checkpoint();
   // Twist: a stair of ledges, then a drop-through rail.
   c.ledge({ y: 430, w: 150, coin: true }).ledge({ y: 360, w: 150, porch: true });
   c.ledge({ y: 330, w: 150, coin: true, dropThrough: true, kind: "rail" }).gap(140);
   c.puddle(90).ledge({ y: 400, w: 190, porch: true, coin: true }).gap(120);
   c.coin(180).ledge({ y: 370, porch: true, coin: true }).gap(160);
-  c.puddle(70).ledge({ y: 410, w: 200, porch: true, coin: true });
+  c.ledge({ y: 340, w: 150, coin: true }).ledge({ y: 400, w: 160, porch: true }).gap(140);
+  c.checkpoint();
+  // Gauntlet: everything from the block, back to back.
+  c.puddle(80).ledge({ y: 380, w: 150, coin: true }).gap(100);
+  c.ledge({ y: 340, w: 150, porch: true, dropThrough: true, kind: "rail" }).gap(120);
+  c.puddle(90).coin(170).ledge({ y: 400, w: 170, coin: true }).gap(130);
+  c.ledge({ y: 350, w: 150, porch: true }).ledge({ y: 320, w: 140, coin: true }).gap(150);
+  c.puddle(70).ledge({ y: 410, w: 180, porch: true, coin: true }).gap(120);
+  c.coin(200).ledge({ y: 370, w: 160, coin: true }).gap(140);
+  c.puddle(80).ledge({ y: 410, w: 210, porch: true, coin: true });
   return c.build({
     id: "kirkwood",
     name: "Kirkwood Dusk",
-    blurb: "Where you learn the hop. Tap to jump, tap again to float.",
-    scene: "The first block to go dark. Six porches, and nobody home to light them.",
-    teaches: "Jumping, floating, and lighting a porch.",
+    blurb: "Where you learn the hop. Move, jump, and light the porches.",
+    scene: "The first block to go dark. Nobody home to light a single porch.",
+    teaches: "Moving, jumping, floating, and lighting a porch.",
     mood: "dusk",
+    theme: "dusk",
   });
 })();
 
@@ -214,11 +238,21 @@ export const GRANT_PARK: LevelDef = (() => {
   // Test: spring over a puddle onto a high ledge.
   c.spring().puddle(90).ledge({ y: 330, porch: true, coin: true }).gap(100);
   c.spring().ledge({ y: 310, w: 150, coin: true }).gap(80);
+  c.checkpoint();
   // Twist: springs into gusts.
   c.gust(220, 1700).spring().gap(60).ledge({ y: 350, porch: true, coin: true }).gap(120);
   c.puddle(90).gust(200, 1500).spring().ledge({ y: 320, porch: true, coin: true }).gap(140);
   c.spring().gust(240, 1400).ledge({ y: 340, w: 190, porch: true, coin: true }).gap(120);
   c.puddle(80).ledge({ y: 400, w: 200, porch: true, coin: true }).gap(100);
+  c.checkpoint();
+  // Gauntlet: springs, gusts and water with no rest between them.
+  c.spring().gust(230, 1300).ledge({ y: 330, w: 160, coin: true }).gap(120);
+  c.puddle(90).spring().ledge({ y: 310, w: 150, porch: true, coin: true }).gap(130);
+  c.gust(210, 1500).spring().gust(250, 1250).ledge({ y: 340, w: 170, porch: true }).gap(140);
+  c.puddle(80).ledge({ y: 380, w: 160, coin: true }).spring().gap(110);
+  c.ledge({ y: 320, w: 150, porch: true, coin: true }).gap(130);
+  c.checkpoint();
+  c.gust(240, 1400).spring().puddle(90).ledge({ y: 350, w: 180, porch: true, coin: true }).gap(140);
   c.spring().ledge({ y: 330, w: 190, porch: true, coin: true });
   return c.build({
     id: "grant-park",
@@ -227,6 +261,7 @@ export const GRANT_PARK: LevelDef = (() => {
     scene: "Storm took the lines down. The bounce boards are all that is left standing.",
     teaches: "Springs, and reading a gust before you commit.",
     mood: "storm",
+    theme: "storm",
   });
 })();
 
@@ -241,6 +276,7 @@ export const EAST_ATLANTA: LevelDef = (() => {
   c.ledge({ y: 380, w: 160, coin: true, move: { dx: 170, period: 2400, offset: 0.5 } }).gap(150);
   // Teach: a platform that blinks.
   c.ledge({ y: 400, w: 160, porch: true, blink: { period: 2200, duty: 0.6 } }).gap(140);
+  c.checkpoint();
   // Test: both, with spikes underneath.
   c.spike(80);
   c.ledge({ y: 380, w: 150, coin: true, move: { dy: -110, period: 2800 } }).gap(140);
@@ -256,6 +292,18 @@ export const EAST_ATLANTA: LevelDef = (() => {
   c.spike(90).ledge({ y: 390, w: 160, porch: true, move: { dx: 140, period: 2200 } }).gap(140);
   c.ledge({ y: 350, w: 150, coin: true, blink: { period: 1900, duty: 0.6, offset: 0.3 } }).gap(150);
   c.puddle(80).ledge({ y: 400, w: 200, porch: true, coin: true }).gap(120);
+  c.checkpoint();
+  // Gauntlet: lifts, sliders and blinkers stacked over spikes.
+  c.ledge({ y: 380, w: 150, coin: true, move: { dy: -130, period: 3200 } }).gap(150);
+  c.spike(80).ledge({ y: 360, w: 150, porch: true, move: { dx: 170, period: 2300 } }).gap(150);
+  c.ledge({ y: 340, w: 140, coin: true, blink: { period: 1800, duty: 0.55 } }).gap(140);
+  c.spike(90)
+    .ledge({ y: 370, w: 150, porch: true, move: { dx: 150, period: 2500, offset: 0.25 } })
+    .gap(150);
+  c.checkpoint();
+  c.ledge({ y: 350, w: 140, coin: true, blink: { period: 2000, duty: 0.6, offset: 0.5 } }).gap(140);
+  c.spike(80).ledge({ y: 390, w: 160, porch: true, move: { dy: -110, period: 2700 } }).gap(150);
+  c.puddle(80).ledge({ y: 370, w: 180, coin: true }).gap(130);
   c.ledge({ y: 370, w: 190, porch: true, coin: true, move: { dy: -120, period: 3000 } });
   return c.build({
     id: "east-atlanta",
@@ -264,6 +312,7 @@ export const EAST_ATLANTA: LevelDef = (() => {
     scene: "The night market packs up around you. The boards move while you stand on them.",
     teaches: "Moving platforms, blinking platforms, and patience.",
     mood: "night",
+    theme: "night",
   });
 })();
 
@@ -280,6 +329,7 @@ export const CABBAGETOWN: LevelDef = (() => {
     .gap(140);
   // Teach: ice.
   c.ledge({ y: 420, w: 220, kind: "ice", porch: true }).gap(120);
+  c.checkpoint();
   // Test: crumble over spikes, ice into a gap.
   c.spike(80).ledge({ y: 390, w: 150, kind: "crumble", porch: true, coin: true }).gap(140);
   c.ledge({ y: 410, w: 200, kind: "ice", coin: true }).spike(80).gap(60);
@@ -290,6 +340,21 @@ export const CABBAGETOWN: LevelDef = (() => {
     .ledge({ y: 350, w: 140, kind: "crumble", porch: true })
     .gap(150);
   c.puddle(90).ledge({ y: 400, w: 190, kind: "ice", porch: true, coin: true }).gap(130);
+  c.checkpoint();
+  // Gauntlet: ice run-ups into crumbling chains over spikes.
+  c.ledge({ y: 410, w: 220, kind: "ice", coin: true }).gap(70);
+  c.spike(90)
+    .ledge({ y: 380, w: 140, kind: "crumble", porch: true })
+    .ledge({ y: 350, w: 140, kind: "crumble", coin: true })
+    .gap(150);
+  c.ledge({ y: 400, w: 200, kind: "ice", porch: true }).spike(80).gap(60);
+  c.ledge({ y: 370, w: 150, kind: "crumble", coin: true }).gap(140);
+  c.checkpoint();
+  c.spike(90).ledge({ y: 390, w: 190, kind: "ice", coin: true }).gap(120);
+  c.ledge({ y: 360, w: 140, kind: "crumble", porch: true })
+    .ledge({ y: 340, w: 140, kind: "crumble", coin: true })
+    .gap(150);
+  c.puddle(80).ledge({ y: 400, w: 200, kind: "ice", porch: true, coin: true }).gap(130);
   c.spike(80).ledge({ y: 380, w: 160, kind: "crumble", coin: true }).gap(150);
   c.ledge({ y: 410, w: 210, porch: true, coin: true });
   return c.build({
@@ -299,6 +364,7 @@ export const CABBAGETOWN: LevelDef = (() => {
     scene: "Mill row, first freeze of the year. Half these boards will not take your weight.",
     teaches: "Crumbling boards and ice you cannot stop on.",
     mood: "night",
+    theme: "fog",
   });
 })();
 
@@ -311,19 +377,34 @@ export const REYNOLDSTOWN: LevelDef = (() => {
   // Teach: a plate on the ground opens the gate ahead of it.
   c.switchGate(560);
   c.gap(60).ledge({ y: 410, porch: true, coin: true }).gap(120);
+  c.checkpoint();
   // Teach: keys. The ribbon stays dark until every one is in hand.
   c.key().ledge({ y: 400, porch: true, coin: true }).gap(120);
   // Test: plate on a ledge, gate right after.
   c.spike(70).ledge({ y: 400, w: 170, coin: true }).gap(40);
+  c.checkpoint();
   c.switchGate(520);
   c.gap(80).key().ledge({ y: 380, porch: true, coin: true }).gap(140);
+  c.checkpoint();
   // Twist: everything at once.
   c.spring().ledge({ y: 340, w: 150, kind: "crumble", coin: true }).gap(130);
   c.spike(80).ledge({ y: 370, w: 150, porch: true, move: { dx: 150, period: 2400 } }).gap(140);
   c.switchGate(600, 210);
   c.gap(80).key().ledge({ y: 390, w: 170, kind: "ice", coin: true }).gap(130);
   c.spike(90).ledge({ y: 360, w: 150, porch: true, blink: { period: 2100, duty: 0.6 } }).gap(150);
+  c.checkpoint();
+  // Gauntlet: the whole vocabulary, and the last two keys are the price of entry.
   c.puddle(90).spring().ledge({ y: 350, w: 190, porch: true, coin: true }).gap(140);
+  c.ledge({ y: 380, w: 150, kind: "crumble", coin: true }).gap(130);
+  c.spike(80).ledge({ y: 350, w: 150, porch: true, move: { dx: 160, period: 2300 } }).gap(150);
+  c.key().ledge({ y: 390, w: 170, kind: "ice", coin: true }).gap(130);
+  c.switchGate(560, 200);
+  c.checkpoint();
+  c.spring().ledge({ y: 340, w: 150, coin: true, blink: { period: 1900, duty: 0.6 } }).gap(140);
+  c.spike(90).ledge({ y: 370, w: 160, porch: true, move: { dy: -120, period: 2800 } }).gap(150);
+  c.key().ledge({ y: 400, w: 180, porch: true, coin: true }).gap(140);
+  c.checkpoint();
+  c.puddle(90).ledge({ y: 370, w: 160, kind: "crumble", coin: true }).gap(150);
   c.ledge({ y: 400, w: 210, porch: true, coin: true });
   return c.build({
     id: "reynoldstown",
@@ -332,6 +413,7 @@ export const REYNOLDSTOWN: LevelDef = (() => {
     scene: "Somebody locked the whole street down. The keys are still out here somewhere.",
     teaches: "Keys, pressure plates, and gates — every mechanic at once.",
     mood: "night",
+    theme: "dawn",
     tail: 320,
   });
 })();
@@ -357,7 +439,8 @@ export function buildDailyLevel(seed: string): LevelDef {
 
   c.coin(90).ledge({ y: 430, porch: true, coin: true }).gap(100);
 
-  for (let beat = 0; beat < 16; beat++) {
+  for (let beat = 0; beat < 34; beat++) {
+    if (beat > 0 && beat % 5 === 0) c.checkpoint();
     const roll = rng();
     const y = 320 + Math.floor(rng() * 110);
     const w = 140 + Math.floor(rng() * 70);
@@ -392,6 +475,7 @@ export function buildDailyLevel(seed: string): LevelDef {
     scene: "A different block every day. Everyone in the city runs this one tonight.",
     teaches: "Everything the story taught, shuffled.",
     mood: rng() > 0.5 ? "storm" : "dusk",
+    theme: (["dusk", "storm", "night", "dawn", "fog"] as const)[Math.floor(rng() * 5)]!,
   });
 }
 
@@ -406,6 +490,7 @@ export function listCourses(): Array<{
   blurb: string;
   teaches: string;
   mood: LevelDef["mood"];
+  theme: LevelDef["theme"];
   length: number;
 }> {
   return [KIRKWOOD, GRANT_PARK, EAST_ATLANTA, CABBAGETOWN, REYNOLDSTOWN, buildDailyLevel(dailySeed())].map(
@@ -415,6 +500,7 @@ export function listCourses(): Array<{
       blurb: l.blurb,
       teaches: l.teaches,
       mood: l.mood,
+      theme: l.theme,
       length: l.length,
     })
   );

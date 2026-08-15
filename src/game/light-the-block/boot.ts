@@ -6,6 +6,8 @@ import type { LevelId, RunEvent } from "@/lib/games/types";
 export type GameControls = {
   jumpStart: () => void;
   jumpEnd: () => void;
+  /** -1 left, 1 right, 0 stop. The lantern no longer runs on its own. */
+  move: (dir: -1 | 0 | 1) => void;
   drop: () => void;
   /** Returns the new paused state. */
   togglePause: () => boolean;

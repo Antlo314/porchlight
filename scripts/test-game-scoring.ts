@@ -222,8 +222,22 @@ for (const id of LEVEL_IDS) {
   dead = Math.max(dead, lvl.finishX - (features[features.length - 1] ?? 0));
   check(`${id}: no dead stretch of empty ground`, dead <= 900, `worst ${dead}px`);
 
+  // Dying sends you to the last checkpoint, so a course without them means a
+  // 12,000px block replayed from zero on every mistake.
+  check(`${id}: has checkpoints`, lvl.checkpoints.length >= 2, `${lvl.checkpoints.length}`);
+  const cps = [...lvl.checkpoints].sort((a, b) => a.x - b.x);
+  let worstBack = cps[0]?.x ?? lvl.finishX;
+  for (let i = 1; i < cps.length; i++) worstBack = Math.max(worstBack, cps[i]!.x - cps[i - 1]!.x);
+  worstBack = Math.max(worstBack, lvl.finishX - (cps[cps.length - 1]?.x ?? 0));
+  check(`${id}: no brutal walk back to a checkpoint`, worstBack <= 5200, `worst ${worstBack}px`);
+  check(
+    `${id}: every checkpoint sits on the course`,
+    lvl.checkpoints.every((c) => c.x > 0 && c.x < lvl.finishX)
+  );
+
   const ids = [
     ...lvl.porches.map((p) => p.id),
+    ...lvl.checkpoints.map((c) => c.id),
     ...lvl.coins.map((c) => c.id),
     ...lvl.keys.map((k) => k.id),
     ...lvl.switches.map((s) => s.id),
@@ -260,14 +274,17 @@ check(
   forged.ok ? "accepted" : ""
 );
 
+// Duration comes off the course, not a literal — the blocks got twice as long
+// and a hardcoded clock silently became a too-fast claim.
+const locksClear = Math.round(fastestClearMs(locks.mood, locks.finishX) * 1.3);
 const honestKeys = validateRun({
   level: locks,
   events: [
     ...locks.keys.map((k, i) => ({ t: 2000 + i * 1000, k: "key" as const, id: k.id })),
     ...locks.switches.map((s, i) => ({ t: 3000 + i * 1000, k: "switch" as const, id: s.id })),
-    { t: 40_000, k: "finish" as const },
+    { t: locksClear - 500, k: "finish" as const },
   ],
-  durationMs: 41_000,
+  durationMs: locksClear,
 });
 check("a full key sweep is accepted", honestKeys.ok, !honestKeys.ok ? honestKeys.code : "");
 check(

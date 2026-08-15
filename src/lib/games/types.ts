@@ -121,6 +121,9 @@ export type LevelGate = {
   h: number;
 };
 
+/** Visual dressing and score. Separate from `mood`, which sets the pace. */
+export type LevelTheme = "dusk" | "storm" | "night" | "dawn" | "fog";
+
 export type LevelDef = {
   id: LevelId;
   name: string;
@@ -130,6 +133,7 @@ export type LevelDef = {
   /** What this course is built to teach. */
   teaches: string;
   mood: "dusk" | "storm" | "night";
+  theme: LevelTheme;
   minDurationMs: number;
   length: number;
   platforms: LevelPlatform[];
@@ -143,6 +147,8 @@ export type LevelDef = {
   keys: LevelProp[];
   switches: LevelSwitch[];
   gates: LevelGate[];
+  /** Touch one and it becomes where you come back from. */
+  checkpoints: LevelProp[];
   finishX: number;
 };
 

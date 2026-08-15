@@ -169,7 +169,9 @@ export function LightTheBlockCanvas({ levelId }: { levelId: string }) {
           </div>
 
           <p className="mt-4 text-xs text-cream/70">
-            Tap to jump · tap again to float · swipe down to drop through
+            ◀ ▶ to walk · Jump, then Jump again to float · ↓ to drop through a rail
+            <br />
+            Keyboard: arrows or WASD, space to jump
           </p>
         </div>
 
@@ -224,6 +226,33 @@ export function LightTheBlockCanvas({ levelId }: { levelId: string }) {
 
       {playing && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex items-end justify-between px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          {/* Left thumb: walk. Capture the pointer so a finger that slides off
+              the pad still releases it instead of sticking on. */}
+          <div className="flex gap-2">
+            {([-1, 1] as const).map((dir) => (
+              <button
+                key={dir}
+                type="button"
+                aria-label={dir < 0 ? "Move left" : "Move right"}
+                className={`${PAD} h-16 w-16 text-2xl`}
+                onContextMenu={(e) => e.preventDefault()}
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  try {
+                    e.currentTarget.setPointerCapture(e.pointerId);
+                  } catch {
+                    /* capture is a nicety, not a requirement */
+                  }
+                  controlsRef.current?.move(dir);
+                }}
+                onPointerUp={() => controlsRef.current?.move(0)}
+                onPointerCancel={() => controlsRef.current?.move(0)}
+              >
+                {dir < 0 ? "◀" : "▶"}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-end gap-2">
           <button
             type="button"
             aria-label="Drop through the rail"
@@ -255,6 +284,7 @@ export function LightTheBlockCanvas({ levelId }: { levelId: string }) {
           >
             Jump
           </button>
+          </div>
         </div>
       )}
 

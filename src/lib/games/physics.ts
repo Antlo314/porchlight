@@ -16,12 +16,27 @@ export const WORLD_HEIGHT = 720;
 export const GROUND_Y = 520;
 export const GRAVITY_Y = 1180;
 
-/** The lantern auto-runs; mood is the course's difficulty dial. */
+/**
+ * Top speed under the player's own thumb. Mood is the course's pace dial.
+ *
+ * The validator derives its clock floor from this, so nothing in the game may
+ * ever push the lantern sideways faster than this — a speed boost would make
+ * honest runs arrive before the floor allows and get rejected as TOO_FAST.
+ */
 export const RUN_SPEED: Record<Mood, number> = {
   dusk: 228,
   storm: 242,
   night: 252,
 };
+
+/** How fast the lantern gets up to speed, and how fast it gives it up. */
+export const MOVE_ACCEL = 2400;
+export const MOVE_FRICTION = 1900;
+/** Ice keeps you going: far less grip in both directions. */
+export const ICE_ACCEL = 900;
+export const ICE_FRICTION = 260;
+/** Air control is weaker than ground control, so commitment matters. */
+export const AIR_CONTROL = 0.62;
 
 export const JUMP_V = -520;
 /** Extra lift while the jump is held, applied per frame on the way up. */
