@@ -38,7 +38,8 @@ export type GameBridge = {
   /** Fires once the scene can take input, handing over the control surface. */
   onReady: (controls: GameControls) => void;
   onStatus: (status: RunStatusSnapshot) => void;
-  onResult: (result: RunOutcome, cleared: boolean) => void;
+  /** `reason` explains a loss the score alone can't — a locked ribbon, a gate. */
+  onResult: (result: RunOutcome, cleared: boolean, reason?: string) => void;
 };
 
 export async function createLightTheBlockGame(

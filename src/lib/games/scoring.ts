@@ -5,6 +5,8 @@ import type { LevelDef, LevelId, RunEvent } from "./types";
 export const COIN_POINTS = 50;
 export const PORCH_POINTS = 120;
 export const FINISH_POINTS = 200;
+export const KEY_POINTS = 150;
+export const SWITCH_POINTS = 60;
 
 export const SCORE_TIER_LOW = 200;
 export const SCORE_TIER_MID = 800;
@@ -18,6 +20,8 @@ export type ScoreBreakdown = {
   score: number;
   coins: number;
   porchesLit: number;
+  keys: number;
+  switches: number;
   deaths: number;
   finished: boolean;
   jumps: number;
@@ -46,10 +50,14 @@ export function scoreFromCounts(opts: {
   coins: number;
   porchesLit: number;
   finished: boolean;
+  keys?: number;
+  switches?: number;
 }): number {
   return (
     opts.coins * COIN_POINTS +
     opts.porchesLit * PORCH_POINTS +
+    (opts.keys ?? 0) * KEY_POINTS +
+    (opts.switches ?? 0) * SWITCH_POINTS +
     (opts.finished ? FINISH_POINTS : 0) +
     comboBonus(opts.porchesLit)
   );
@@ -82,10 +90,23 @@ export function parseEvents(raw: unknown): RunEvent[] | null {
     const k = item.k;
     if (typeof t !== "number" || !Number.isFinite(t) || t < 0) return null;
     if (t + 1e-6 < lastT) return null;
-    if (k !== "porch" && k !== "coin" && k !== "die" && k !== "finish" && k !== "jump") {
+    if (
+      k !== "porch" &&
+      k !== "coin" &&
+      k !== "die" &&
+      k !== "finish" &&
+      k !== "jump" &&
+      k !== "key" &&
+      k !== "switch"
+    ) {
       return null;
     }
-    if ((k === "porch" || k === "coin") && typeof item.id !== "string") return null;
+    if (
+      (k === "porch" || k === "coin" || k === "key" || k === "switch") &&
+      typeof item.id !== "string"
+    ) {
+      return null;
+    }
     if (typeof item.id === "string" && item.id.length > 32) return null;
     out.push({
       t,
@@ -111,10 +132,14 @@ export function validateRun(opts: {
 
   const porchX = new Map(level.porches.map((p) => [p.id, p.x]));
   const coinX = new Map(level.coins.map((c) => [c.id, c.x]));
+  const keyX = new Map(level.keys.map((k) => [k.id, k.x]));
+  const switchX = new Map(level.switches.map((s) => [s.id, s.x]));
   const porchIds = new Set(porchX.keys());
   const coinIds = new Set(coinX.keys());
   const seenPorch = new Set<string>();
   const seenCoin = new Set<string>();
+  const seenKey = new Set<string>();
+  const seenSwitch = new Set<string>();
   let deaths = 0;
   let finished = false;
   let jumps = 0;
@@ -158,7 +183,39 @@ export function validateRun(opts: {
       }
       seenCoin.add(ev.id);
       reachX = Math.max(reachX, coinX.get(ev.id) ?? 0);
+      continue;
     }
+    if (ev.k === "key") {
+      if (!ev.id || !keyX.has(ev.id)) {
+        return { ok: false, code: "UNKNOWN_ID", error: "Picked up a key that isn't on this block." };
+      }
+      if (seenKey.has(ev.id)) {
+        return { ok: false, code: "DUP_COLLECT", error: "The same key was taken twice." };
+      }
+      seenKey.add(ev.id);
+      reachX = Math.max(reachX, keyX.get(ev.id) ?? 0);
+      continue;
+    }
+    if (ev.k === "switch") {
+      if (!ev.id || !switchX.has(ev.id)) {
+        return { ok: false, code: "UNKNOWN_ID", error: "Threw a switch that isn't on this block." };
+      }
+      if (seenSwitch.has(ev.id)) {
+        return { ok: false, code: "DUP_COLLECT", error: "The same switch was thrown twice." };
+      }
+      seenSwitch.add(ev.id);
+      reachX = Math.max(reachX, switchX.get(ev.id) ?? 0);
+    }
+  }
+
+  // The ribbon is physically locked until every key is in hand, so a claimed
+  // finish without the full set means the log and the level disagree.
+  if (finished && seenKey.size < level.keys.length) {
+    return {
+      ok: false,
+      code: "IMPOSSIBLE",
+      error: "That block's ribbon can't open with keys still on it.",
+    };
   }
 
   // Distance floor, not a flat one. A blanket `minDurationMs` also rejected
@@ -183,13 +240,15 @@ export function validateRun(opts: {
 
   const coins = seenCoin.size;
   const porchesLit = seenPorch.size;
-  const score = scoreFromCounts({ coins, porchesLit, finished });
+  const keys = seenKey.size;
+  const switches = seenSwitch.size;
+  const score = scoreFromCounts({ coins, porchesLit, keys, switches, finished });
 
   if (opts.claimedScore !== undefined && opts.claimedScore !== score) {
     return { ok: false, code: "SCORE_MISMATCH", error: "The score didn't match the run." };
   }
 
-  return { ok: true, score, coins, porchesLit, deaths, finished, jumps };
+  return { ok: true, score, coins, porchesLit, keys, switches, deaths, finished, jumps };
 }
 
 export function levelForRun(levelId: LevelId, seed: string): LevelDef {

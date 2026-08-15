@@ -4,6 +4,8 @@ import {
   AIR_JUMPS,
   BUFFER_MS,
   COYOTE_MS,
+  CRUMBLE_MS,
+  CRUMBLE_RESPAWN_MS,
   HOLD_V,
   JUMP_V,
   LIVES,
@@ -11,10 +13,11 @@ import {
   PLAYER_START_X,
   PLAYER_W,
   RUN_SPEED,
+  SPRING_V,
   WORLD_HEIGHT,
 } from "@/lib/games/physics";
 import { scoreFromCounts } from "@/lib/games/scoring";
-import type { LevelDef, RunEvent } from "@/lib/games/types";
+import type { LevelDef, LevelPlatform, RunEvent } from "@/lib/games/types";
 import type { GameBridge, GameControls, RunStatusSnapshot } from "../boot";
 
 type MoodPalette = {
@@ -57,21 +60,53 @@ const PALETTES: Record<LevelDef["mood"], MoodPalette> = {
   },
 };
 
+const KIND_COLOR: Record<string, number> = {
+  wet: 0x4a5a62,
+  awning: 0x833e1a,
+  ice: 0x9fd4e8,
+  crumble: 0x7a5233,
+};
+
+type Board = Phaser.GameObjects.Rectangle & {
+  body: Phaser.Physics.Arcade.Body;
+};
+
+type MovingBoard = {
+  obj: Board;
+  def: LevelPlatform;
+  homeX: number;
+  homeY: number;
+  prevX: number;
+  prevY: number;
+};
+
 export class PlayScene extends Phaser.Scene {
   private bridge!: GameBridge;
   private level!: LevelDef;
   private pal!: MoodPalette;
 
   private player!: Phaser.Physics.Arcade.Sprite;
-  private platforms!: Phaser.Physics.Arcade.StaticGroup;
-  private rails!: Phaser.Physics.Arcade.StaticGroup;
+  private solids!: Phaser.Physics.Arcade.Group;
+  private rails!: Phaser.Physics.Arcade.Group;
 
-  /** Built by buildWorld(), wired to the player by wireCollisions(). */
+  private moving: MovingBoard[] = [];
+  private blinking: { obj: Board; def: LevelPlatform }[] = [];
+  private crumbling = new Set<Board>();
+  private gateBodies = new Map<string, Phaser.GameObjects.Rectangle>();
+  private finishGate!: Phaser.GameObjects.Rectangle;
+  private finishBar!: Phaser.GameObjects.Rectangle;
+
   private porchZones: Phaser.GameObjects.Zone[] = [];
   private coinSprites: Phaser.GameObjects.GameObject[] = [];
+  private keySprites: Phaser.GameObjects.GameObject[] = [];
+  private switchPads: Phaser.GameObjects.Rectangle[] = [];
   private puddleSprites: Phaser.GameObjects.GameObject[] = [];
+  private spikeSprites: Phaser.GameObjects.GameObject[] = [];
+  private springSprites: Phaser.GameObjects.Rectangle[] = [];
   private gustSprites: Array<{ obj: Phaser.GameObjects.GameObject; period: number }> = [];
-  private finishGate!: Phaser.GameObjects.Rectangle;
+
+  private dust!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private sparks!: Phaser.GameObjects.Particles.ParticleEmitter;
 
   private eventsLog: RunEvent[] = [];
   private runStartedAt = 0;
@@ -80,6 +115,8 @@ export class PlayScene extends Phaser.Scene {
   private lives = LIVES;
   private coins = 0;
   private porchesLit = 0;
+  private keysHeld = 0;
+  private switchesThrown = 0;
   private deaths = 0;
   private cleared = false;
   private finished = false;
@@ -90,6 +127,8 @@ export class PlayScene extends Phaser.Scene {
   private audioUnlocked = false;
   private musicStarted = false;
   private dir = 1;
+  private onIce = false;
+  private wasGrounded = true;
 
   private coyoteUntil = 0;
   private bufferUntil = 0;
@@ -109,6 +148,7 @@ export class PlayScene extends Phaser.Scene {
   private hud!: {
     score: Phaser.GameObjects.Text;
     lives: Phaser.GameObjects.Text;
+    keys: Phaser.GameObjects.Text;
     course: Phaser.GameObjects.Text;
     hint: Phaser.GameObjects.Text;
     bar: Phaser.GameObjects.Rectangle;
@@ -136,15 +176,13 @@ export class PlayScene extends Phaser.Scene {
     this.level = getLevel(this.bridge.levelId, this.bridge.seed);
     this.pal = PALETTES[this.level.mood];
     this.runStartedAt = this.time.now;
-    this.lastSafe = {
-      x: PLAYER_START_X,
-      y: (this.level.platforms[0]?.y ?? 480) - 60,
-    };
+    this.lastSafe = { x: PLAYER_START_X, y: this.level.platforms[0]!.y - 60 };
 
     this.physics.world.setBounds(0, 0, this.level.length, WORLD_HEIGHT);
     this.cameras.main.setBounds(0, 0, this.level.length, WORLD_HEIGHT);
     this.cameras.main.setBackgroundColor(this.pal.skyMid);
 
+    this.makeParticleTextures();
     this.drawParallax();
     // Order matters: buildWorld() creates the platform groups, spawnPlayer()
     // collides against them. Spawning first left both colliders bound to
@@ -152,6 +190,7 @@ export class PlayScene extends Phaser.Scene {
     // the whole block and the run was over before a tap could register.
     this.buildWorld();
     this.spawnPlayer();
+    this.buildParticles();
     this.wireCollisions();
     this.bindInput();
     this.buildHud();
@@ -163,16 +202,12 @@ export class PlayScene extends Phaser.Scene {
       this.scale.off("resize", this.layout, this);
     });
 
+    this.cameras.main.fadeIn(420, 0, 0, 0);
     this.bridge.onReady(this.controls());
     this.pushStatus();
     this.loadAudio();
   }
 
-  /**
-   * A quarter-megabyte of MP3 has no business holding up the first frame, and
-   * every cue already has a synth fallback. Fetch it in the background and let
-   * the clips swap in whenever they land.
-   */
   private loadAudio() {
     const clips: Array<[string, string]> = [
       ["sfx-jump", "jump"],
@@ -197,7 +232,6 @@ export class PlayScene extends Phaser.Scene {
 
   // ---------------------------------------------------------------- controls
 
-  /** Handle the React overlay drives, so the on-screen buttons are real input. */
   private controls(): GameControls {
     return {
       jumpStart: () => {
@@ -229,6 +263,39 @@ export class PlayScene extends Phaser.Scene {
   }
 
   // ------------------------------------------------------------------ visual
+
+  private makeParticleTextures() {
+    if (!this.textures.exists("spark-dot")) {
+      const g = this.add.graphics();
+      g.fillStyle(0xffffff, 1);
+      g.fillCircle(6, 6, 6);
+      g.generateTexture("spark-dot", 12, 12);
+      g.destroy();
+    }
+  }
+
+  private buildParticles() {
+    this.dust = this.add.particles(0, 0, "spark-dot", {
+      speed: { min: 30, max: 110 },
+      angle: { min: 200, max: 340 },
+      scale: { start: 0.5, end: 0 },
+      lifespan: 380,
+      quantity: 6,
+      tint: 0xd9c9b0,
+      emitting: false,
+    });
+    this.dust.setDepth(9);
+
+    this.sparks = this.add.particles(0, 0, "spark-dot", {
+      speed: { min: 60, max: 220 },
+      scale: { start: 0.6, end: 0 },
+      lifespan: 520,
+      quantity: 10,
+      tint: [0xffe9b8, 0xe69a41, 0xc2661b],
+      emitting: false,
+    });
+    this.sparks.setDepth(12);
+  }
 
   private drawBackdrop() {
     this.backdrop.forEach((o) => o.destroy());
@@ -295,36 +362,74 @@ export class PlayScene extends Phaser.Scene {
 
   // ------------------------------------------------------------------- world
 
+  /** Platforms are dynamic-but-immovable so the moving ones can actually move. */
+  private addBoard(p: LevelPlatform): Board {
+    const height = p.kind === "ground" ? 90 : 28;
+    const color = KIND_COLOR[p.kind] ?? this.pal.ground;
+    const rect = this.add.rectangle(p.x + p.w / 2, p.y + height / 2, p.w, height, color);
+    this.physics.add.existing(rect);
+    const body = rect.body as Phaser.Physics.Arcade.Body;
+    body.setAllowGravity(false);
+    body.setImmovable(true);
+    body.moves = p.kind !== "ground" && Boolean(p.move);
+    rect.setData("kind", p.kind);
+    return rect as Board;
+  }
+
+  /**
+   * Velocity-driven, not position-driven. A dynamic body integrates its own
+   * position every step, so writing rect.x by hand just got overwritten and the
+   * collision box drifted away from the picture. Applied *after* the board
+   * joins its group, because the group's defaults reset velocity on add.
+   */
+  private startBoardMotion(board: Board, p: LevelPlatform) {
+    const body = board.body as Phaser.Physics.Arcade.Body;
+    if (!p.move) {
+      body.moves = false;
+      return;
+    }
+    body.moves = true;
+    const amp = Math.abs(p.move.dx ?? p.move.dy ?? 0);
+    const speed = amp > 0 ? (4 * amp) / (p.move.period / 1000) : 0;
+    if (p.move.dx) body.setVelocityX(speed);
+    else body.setVelocityY(speed);
+  }
+
   private buildWorld() {
-    this.platforms = this.physics.add.staticGroup();
-    this.rails = this.physics.add.staticGroup();
-    this.porchZones = [];
-    this.coinSprites = [];
-    this.puddleSprites = [];
-    this.gustSprites = [];
+    this.solids = this.physics.add.group({ allowGravity: false, immovable: true });
+    this.rails = this.physics.add.group({ allowGravity: false, immovable: true });
+    this.moving = [];
+    this.blinking = [];
+    this.crumbling.clear();
 
     for (const p of this.level.platforms) {
-      const group = p.dropThrough ? this.rails : this.platforms;
-      const height = p.kind === "ground" ? 90 : 28;
-      const sprite = this.add.rectangle(
-        p.x + p.w / 2,
-        p.y + height / 2,
-        p.w,
-        height,
-        p.kind === "wet" ? 0x4a5a62 : p.kind === "awning" ? 0x833e1a : this.pal.ground
-      );
-      sprite.setData("kind", p.kind);
-      sprite.setData("drop", !!p.dropThrough);
-      this.physics.add.existing(sprite, true);
-      group.add(sprite);
+      const board = this.addBoard(p);
+      (p.dropThrough ? this.rails : this.solids).add(board);
+      this.startBoardMotion(board, p);
 
       if (p.kind !== "ground" && this.textures.exists("platform")) {
-        const deco = this.add.image(p.x + p.w / 2, p.y + 6, "platform");
+        const deco = this.add.image(board.x, p.y + 6, "platform");
         deco.setDisplaySize(p.w + 16, 36);
         deco.setDepth(2);
+        board.setData("deco", deco);
+        if (p.kind === "ice") deco.setTint(0xbfe6f5);
+        if (p.kind === "crumble") deco.setTint(0xa9793f);
       } else if (p.kind === "ground") {
-        this.add.rectangle(p.x + p.w / 2, p.y + 6, p.w, 12, 0x2f5540).setDepth(1);
+        this.add.rectangle(board.x, p.y + 6, p.w, 12, 0x2f5540).setDepth(1);
       }
+
+      if (p.move) {
+        this.moving.push({
+          obj: board,
+          def: p,
+          homeX: board.x,
+          homeY: board.y,
+          prevX: board.x,
+          prevY: board.y,
+        });
+      }
+      if (p.blink) this.blinking.push({ obj: board, def: p });
+      if (p.kind === "crumble") board.setData("crumble", "idle");
     }
 
     for (const porch of this.level.porches) {
@@ -360,6 +465,41 @@ export class PlayScene extends Phaser.Scene {
       this.coinSprites.push(spr);
     }
 
+    for (const key of this.level.keys) {
+      const ring = this.add.circle(key.x, key.y, 13, 0xffe9b8, 0.95).setDepth(8);
+      ring.setStrokeStyle(4, 0xc2661b, 1);
+      ring.setData("id", key.id);
+      this.tweens.add({
+        targets: ring,
+        y: key.y - 10,
+        duration: 820,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.inOut",
+      });
+      this.tweens.add({ targets: ring, scaleX: 0.35, duration: 900, yoyo: true, repeat: -1 });
+      this.physics.add.existing(ring, true);
+      this.keySprites.push(ring);
+    }
+
+    for (const sw of this.level.switches) {
+      const pad = this.add.rectangle(sw.x, sw.y - 8, 54, 14, 0x8aa0b4, 0.95).setDepth(5);
+      pad.setStrokeStyle(2, 0xfaf7f2, 0.5);
+      pad.setData("id", sw.id);
+      pad.setData("gate", sw.gate);
+      pad.setData("thrown", false);
+      this.physics.add.existing(pad, true);
+      this.switchPads.push(pad);
+    }
+
+    for (const gate of this.level.gates) {
+      const bar = this.add.rectangle(gate.x, gate.y - gate.h / 2, 18, gate.h, 0x8aa0b4, 0.95);
+      bar.setStrokeStyle(2, 0xfaf7f2, 0.6);
+      bar.setDepth(6);
+      this.physics.add.existing(bar, true);
+      this.gateBodies.set(gate.id, bar);
+    }
+
     for (const puddle of this.level.puddles) {
       const spr = this.textures.exists("puddle")
         ? this.add
@@ -369,6 +509,30 @@ export class PlayScene extends Phaser.Scene {
       spr.setDepth(5);
       this.physics.add.existing(spr, true);
       this.puddleSprites.push(spr);
+    }
+
+    for (const sp of this.level.spikes) {
+      const g = this.add.graphics();
+      g.fillStyle(0xb8c4d0, 1);
+      const teeth = Math.max(3, Math.floor(sp.w / 18));
+      const tw = sp.w / teeth;
+      for (let i = 0; i < teeth; i++) {
+        const x0 = sp.x + i * tw;
+        g.fillTriangle(x0, sp.y, x0 + tw / 2, sp.y - 26, x0 + tw, sp.y);
+      }
+      g.setDepth(5);
+      const hit = this.add.rectangle(sp.x + sp.w / 2, sp.y - 12, sp.w, 22, 0x000000, 0);
+      this.physics.add.existing(hit, true);
+      this.spikeSprites.push(hit);
+    }
+
+    for (const spring of this.level.springs) {
+      const pad = this.add.rectangle(spring.x, spring.y - 10, 46, 18, 0x3d6b4f, 1);
+      pad.setStrokeStyle(2, 0xedb56a, 1);
+      pad.setDepth(5);
+      pad.setData("power", spring.power ?? SPRING_V);
+      this.physics.add.existing(pad, true);
+      this.springSprites.push(pad);
     }
 
     for (const gust of this.level.gusts) {
@@ -388,7 +552,8 @@ export class PlayScene extends Phaser.Scene {
     }
 
     this.finishGate = this.add.rectangle(this.level.finishX, 360, 18, 320, 0xc2661b, 0.55);
-    this.add.rectangle(this.level.finishX, 200, 64, 18, 0xedb56a).setDepth(4);
+    this.finishBar = this.add.rectangle(this.level.finishX, 200, 64, 18, 0xedb56a);
+    this.finishBar.setDepth(4);
     this.physics.add.existing(this.finishGate, true);
 
     if (this.level.mood === "storm") {
@@ -413,7 +578,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private spawnPlayer() {
-    const startY = (this.level.platforms[0]?.y ?? 500) - 80;
+    const startY = this.level.platforms[0]!.y - 80;
     const hasArt = this.textures.exists("lantern");
     if (!hasArt) {
       const g = this.add.graphics();
@@ -431,17 +596,15 @@ export class PlayScene extends Phaser.Scene {
     this.sizePlayerBody();
     this.player.setCollideWorldBounds(true);
     this.player.setDepth(10);
-    this.player.setBounce(0.02);
 
     this.cameras.main.startFollow(this.player, true, 0.12, 0.08, -40, 80);
     this.cameras.main.setDeadzone(40, 80);
   }
 
-  /** Keep the drawn lantern at PLAYER_W x PLAYER_H whichever frame is showing. */
-  private applySpriteScale() {
+  private applySpriteScale(squash = 1) {
     const sx = PLAYER_W / (this.player.width || PLAYER_W);
     const sy = PLAYER_H / (this.player.height || PLAYER_H);
-    this.player.setScale(sx, sy);
+    this.player.setScale(sx / squash, sy * squash);
   }
 
   /**
@@ -459,27 +622,175 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private wireCollisions() {
-    this.physics.add.collider(this.player, this.platforms);
+    this.physics.add.collider(this.player, this.solids, (_pl, board) =>
+      this.onBoardContact(board as Board)
+    );
     this.physics.add.collider(this.player, this.rails, undefined, () => {
       const body = this.player.body as Phaser.Physics.Arcade.Body;
       return body.velocity.y >= 0 && !this.player.getData("drop");
     });
 
+    for (const bar of this.gateBodies.values()) {
+      this.physics.add.collider(this.player, bar, () => this.hitGate());
+    }
     for (const zone of this.porchZones) {
       this.physics.add.overlap(this.player, zone, () => this.lightPorch(zone));
     }
     for (const coin of this.coinSprites) {
       this.physics.add.overlap(this.player, coin, () => this.takeCoin(coin));
     }
+    for (const key of this.keySprites) {
+      this.physics.add.overlap(this.player, key, () => this.takeKey(key));
+    }
+    for (const pad of this.switchPads) {
+      this.physics.add.overlap(this.player, pad, () => this.throwSwitch(pad));
+    }
+    for (const pad of this.springSprites) {
+      this.physics.add.overlap(this.player, pad, () => this.bounce(pad));
+    }
     for (const puddle of this.puddleSprites) {
       this.physics.add.overlap(this.player, puddle, () => this.hurt("puddle"));
+    }
+    for (const spike of this.spikeSprites) {
+      this.physics.add.overlap(this.player, spike, () => this.hurt("spike"));
     }
     for (const gust of this.gustSprites) {
       this.physics.add.overlap(this.player, gust.obj, () => {
         if (this.runClock() % gust.period < 700) this.hurt("gust");
       });
     }
-    this.physics.add.overlap(this.player, this.finishGate, () => this.finishRun());
+    this.physics.add.overlap(this.player, this.finishGate, () => this.reachRibbon());
+  }
+
+  // ------------------------------------------------------------- new mechanics
+
+  private onBoardContact(board: Board) {
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    if (!body.blocked.down && !body.touching.down) return;
+    this.onIce = board.getData("kind") === "ice";
+    if (board.getData("kind") === "crumble" && board.getData("crumble") === "idle") {
+      this.startCrumble(board);
+    }
+  }
+
+  private startCrumble(board: Board) {
+    board.setData("crumble", "going");
+    this.crumbling.add(board);
+    const deco = board.getData("deco") as Phaser.GameObjects.Image | undefined;
+    const shake = this.tweens.add({
+      targets: [board, deco].filter(Boolean),
+      x: `+=3`,
+      duration: 60,
+      yoyo: true,
+      repeat: Math.floor(CRUMBLE_MS / 120),
+    });
+    this.time.delayedCall(CRUMBLE_MS, () => {
+      shake.stop();
+      if (!board.active) return;
+      board.setData("crumble", "gone");
+      (board.body as Phaser.Physics.Arcade.Body).enable = false;
+      board.setVisible(false);
+      deco?.setVisible(false);
+      this.sparks.emitParticleAt(board.x, board.y, 6);
+      this.time.delayedCall(CRUMBLE_RESPAWN_MS, () => {
+        if (!board.active) return;
+        board.setData("crumble", "idle");
+        (board.body as Phaser.Physics.Arcade.Body).enable = true;
+        board.setVisible(true);
+        deco?.setVisible(true);
+        this.crumbling.delete(board);
+      });
+    });
+  }
+
+  private bounce(pad: Phaser.GameObjects.Rectangle) {
+    if (this.finished || this.paused) return;
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    if (body.velocity.y < 0) return;
+    const power = (pad.getData("power") as number) ?? SPRING_V;
+    body.setVelocityY(power);
+    this.airJumpsLeft = AIR_JUMPS;
+    this.tweens.add({ targets: pad, scaleY: 0.5, duration: 90, yoyo: true });
+    this.sparks.emitParticleAt(pad.x, pad.y, 8);
+    this.cameras.main.shake(120, 0.004);
+    this.sfx("sfx-jump", () => this.synthBeep(300, 0.16));
+  }
+
+  private takeKey(obj: Phaser.GameObjects.GameObject) {
+    if (this.finished) return;
+    const id = obj.getData("id") as string | undefined;
+    if (!id || obj.getData("gone")) return;
+    obj.setData("gone", true);
+    const body = obj.body as Phaser.Physics.Arcade.StaticBody | null;
+    if (body) body.enable = false;
+    const ring = obj as Phaser.GameObjects.Arc;
+    this.sparks.emitParticleAt(ring.x, ring.y, 14);
+    this.tweens.add({
+      targets: obj,
+      y: ring.y - 40,
+      alpha: 0,
+      scale: 1.6,
+      duration: 260,
+      onComplete: () => obj.destroy(),
+    });
+    this.keysHeld += 1;
+    this.logEvent("key", id);
+    this.sfx("sfx-ignite", () => this.synthBeep(980, 0.2, "sine"));
+    this.cameras.main.shake(140, 0.005);
+    if (this.keysHeld >= this.level.keys.length) this.openRibbon();
+    this.refreshHud();
+  }
+
+  private openRibbon() {
+    this.finishBar.setFillStyle(0x8fe08a);
+    this.finishGate.setFillStyle(0x8fe08a, 0.55);
+    this.tweens.add({ targets: this.finishBar, scaleX: 1.25, duration: 220, yoyo: true });
+  }
+
+  private throwSwitch(pad: Phaser.GameObjects.Rectangle) {
+    if (this.finished || pad.getData("thrown")) return;
+    pad.setData("thrown", true);
+    pad.setFillStyle(0x8fe08a, 1);
+    this.tweens.add({ targets: pad, scaleY: 0.4, duration: 120 });
+    const gateId = pad.getData("gate") as string;
+    const bar = this.gateBodies.get(gateId);
+    if (bar) {
+      (bar.body as Phaser.Physics.Arcade.StaticBody).enable = false;
+      this.sparks.emitParticleAt(bar.x, bar.y, 10);
+      this.tweens.add({
+        targets: bar,
+        scaleY: 0,
+        alpha: 0.2,
+        duration: 280,
+        ease: "Back.in",
+      });
+    }
+    this.switchesThrown += 1;
+    this.logEvent("switch", pad.getData("id") as string);
+    this.sfx("sfx-clear", () => this.synthBeep(520, 0.14, "square"));
+    this.cameras.main.shake(160, 0.006);
+    this.refreshHud();
+  }
+
+  /** Ran into a gate that never opened. */
+  private hitGate() {
+    if (this.finished) return;
+    this.cameras.main.shake(200, 0.008);
+    this.endRun(false, "A gate held shut. Find the plate before the bars.");
+  }
+
+  private reachRibbon() {
+    if (this.finished) return;
+    if (this.keysHeld < this.level.keys.length) {
+      const short = this.level.keys.length - this.keysHeld;
+      this.cameras.main.shake(220, 0.008);
+      this.endRun(
+        false,
+        `The ribbon stayed dark — ${short} key${short === 1 ? "" : "s"} still on the block.`
+      );
+      return;
+    }
+    this.finishRun();
   }
 
   // ------------------------------------------------------------------- input
@@ -506,26 +817,19 @@ export class PlayScene extends Phaser.Scene {
     });
 
     const kb = this.input.keyboard;
-    kb?.on("keydown-SPACE", () => {
+    const jump = () => {
       this.unlockAudio();
       if (this.paused || this.finished) return;
       this.bufferUntil = this.time.now + BUFFER_MS;
       this.holdingJump = true;
       this.tryJump();
-    });
-    kb?.on("keyup-SPACE", () => {
-      this.holdingJump = false;
-    });
-    kb?.on("keydown-UP", () => {
-      this.unlockAudio();
-      if (this.paused || this.finished) return;
-      this.bufferUntil = this.time.now + BUFFER_MS;
-      this.holdingJump = true;
-      this.tryJump();
-    });
-    kb?.on("keyup-UP", () => {
-      this.holdingJump = false;
-    });
+    };
+    kb?.on("keydown-SPACE", jump);
+    kb?.on("keyup-SPACE", () => (this.holdingJump = false));
+    kb?.on("keydown-UP", jump);
+    kb?.on("keyup-UP", () => (this.holdingJump = false));
+    kb?.on("keydown-W", jump);
+    kb?.on("keyup-W", () => (this.holdingJump = false));
     kb?.on("keydown-DOWN", () => this.dropThrough());
     kb?.on("keydown-S", () => this.dropThrough());
     kb?.on("keydown-LEFT", () => {
@@ -568,6 +872,10 @@ export class PlayScene extends Phaser.Scene {
         .text(14, 34, "🏮".repeat(LIVES), { fontSize: "16px" })
         .setScrollFactor(0)
         .setDepth(50),
+      keys: this.add
+        .text(14, 56, "", { fontSize: "14px", color: "#ffe9b8" })
+        .setScrollFactor(0)
+        .setDepth(50),
       course: this.add
         .text(0, 12, this.level.name, {
           fontFamily: "ui-sans-serif, system-ui, sans-serif",
@@ -578,7 +886,7 @@ export class PlayScene extends Phaser.Scene {
         .setScrollFactor(0)
         .setDepth(50),
       hint: this.add
-        .text(0, 0, "Tap to jump · tap again to float · swipe down to drop", {
+        .text(0, 0, this.level.teaches, {
           fontFamily: "ui-sans-serif, system-ui, sans-serif",
           fontSize: "13px",
           color: "#faeacf",
@@ -586,10 +894,7 @@ export class PlayScene extends Phaser.Scene {
         .setOrigin(0.5)
         .setScrollFactor(0)
         .setDepth(50),
-      barBg: this.add
-        .rectangle(0, 8, 10, 4, 0x2b2420, 0.5)
-        .setScrollFactor(0)
-        .setDepth(50),
+      barBg: this.add.rectangle(0, 8, 10, 4, 0x2b2420, 0.5).setScrollFactor(0).setDepth(50),
       bar: this.add
         .rectangle(14, 8, 4, 4, 0xe69a41)
         .setOrigin(0, 0.5)
@@ -622,7 +927,6 @@ export class PlayScene extends Phaser.Scene {
     this.pauseVeil.setData("veil", veil);
   }
 
-  /** Runs on create and on every resize — nothing here may assume a fixed size. */
   private layout() {
     const w = this.scale.width;
     const h = this.scale.height;
@@ -645,10 +949,6 @@ export class PlayScene extends Phaser.Scene {
 
   // ------------------------------------------------------------------- audio
 
-  /**
-   * Browsers keep the audio context suspended until a gesture lands. The old
-   * code started the loop inside create(), where it was always blocked.
-   */
   private unlockAudio() {
     if (this.audioUnlocked) return;
     this.audioUnlocked = true;
@@ -659,7 +959,6 @@ export class PlayScene extends Phaser.Scene {
     this.startMusic();
   }
 
-  /** Safe to call from either side of the race: the gesture or the download. */
   private startMusic() {
     if (this.musicStarted || !this.audioUnlocked || this.muted) return;
     if (this.finished || !this.cache.audio.exists("bgm")) return;
@@ -715,16 +1014,33 @@ export class PlayScene extends Phaser.Scene {
     if (!grounded && this.airJumpsLeft <= 0) return;
     if (!grounded) this.airJumpsLeft -= 1;
 
-    body.setVelocityY(JUMP_V);
+    // Frost gives nothing to push against, so a jump off ice is a short one.
+    body.setVelocityY(this.onIce && grounded ? JUMP_V * 0.82 : JUMP_V);
     this.coyoteUntil = 0;
     this.bufferUntil = 0;
     this.logEvent("jump");
     if (this.textures.exists("lantern-jump")) {
       this.player.setTexture("lantern-jump");
-      this.applySpriteScale();
     }
+    this.stretch(1.12, 140);
+    this.dust.emitParticleAt(this.player.x, this.player.y + 26, 4);
     this.sfx("sfx-jump", () => this.synthBeep(420, 0.1));
     if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(8);
+  }
+
+  /** Squash and stretch, the cheapest juice there is. */
+  private stretch(amount: number, ms: number) {
+    this.tweens.killTweensOf(this.player);
+    this.applySpriteScale(amount);
+    this.tweens.addCounter({
+      from: amount,
+      to: 1,
+      duration: ms,
+      ease: "Quad.out",
+      onUpdate: (tw) => {
+        if (this.player?.active) this.applySpriteScale(tw.getValue() ?? 1);
+      },
+    });
   }
 
   private dropThrough() {
@@ -742,10 +1058,12 @@ export class PlayScene extends Phaser.Scene {
     glow.setRadius(18);
     const lamp = zone.getData("lamp") as Phaser.GameObjects.GameObject;
     this.tweens.add({ targets: [glow, lamp], scale: 1.18, yoyo: true, duration: 180 });
+    this.sparks.emitParticleAt(zone.x, zone.y - 30, 12);
     this.porchesLit += 1;
     this.logEvent("porch", zone.getData("id"));
     this.lastSafe = { x: zone.x, y: zone.y - 30 };
     this.sfx("sfx-ignite", () => this.synthBeep(620, 0.18));
+    this.cameras.main.shake(90, 0.003);
     if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(12);
     this.refreshHud();
   }
@@ -759,9 +1077,11 @@ export class PlayScene extends Phaser.Scene {
     // and that frees the body again. Destroying it here double-frees.
     const body = obj.body as Phaser.Physics.Arcade.StaticBody | null;
     if (body) body.enable = false;
+    const img = obj as Phaser.GameObjects.Image;
+    this.sparks.emitParticleAt(img.x, img.y, 8);
     this.tweens.add({
       targets: obj,
-      y: (obj as Phaser.GameObjects.Image).y - 30,
+      y: img.y - 30,
       alpha: 0,
       duration: 180,
       onComplete: () => obj.destroy(),
@@ -772,7 +1092,7 @@ export class PlayScene extends Phaser.Scene {
     this.refreshHud();
   }
 
-  private hurt(kind: "puddle" | "gust") {
+  private hurt(kind: "puddle" | "gust" | "spike") {
     if (this.finished || this.paused || this.time.now < this.invulnUntil) return;
     this.invulnUntil = this.time.now + 900;
     this.deaths += 1;
@@ -782,6 +1102,8 @@ export class PlayScene extends Phaser.Scene {
       this.synthBeep(140, 0.2, "sawtooth")
     );
     this.cameras.main.flash(120, 80, 40, 20);
+    this.cameras.main.shake(260, 0.012);
+    this.sparks.emitParticleAt(this.player.x, this.player.y, 16);
     this.player.setTint(0x6b5f56);
     this.time.delayedCall(180, () => this.player?.clearTint());
     if (this.lives <= 0) {
@@ -800,10 +1122,12 @@ export class PlayScene extends Phaser.Scene {
     this.cleared = true;
     this.logEvent("finish");
     this.sfx("sfx-clear", () => this.synthBeep(740, 0.3));
+    this.sparks.emitParticleAt(this.player.x, this.player.y, 30);
+    this.cameras.main.shake(300, 0.01);
     this.endRun(true);
   }
 
-  private endRun(cleared: boolean) {
+  private endRun(cleared: boolean, reason?: string) {
     if (this.submitting) return;
     this.submitting = true;
     // `cleared`, not `finished`. The server rebuilds the score from the event
@@ -826,14 +1150,12 @@ export class PlayScene extends Phaser.Scene {
         durationMs,
         claimedScore: score,
       })
-      .then((result) => this.bridge.onResult(result, cleared))
+      .then((result) => this.bridge.onResult(result, cleared, reason))
       .catch(() =>
         this.bridge.onResult(
-          {
-            ok: false,
-            error: "Couldn't reach the porch. Your run wasn't saved.",
-          },
-          cleared
+          { ok: false, error: "Couldn't reach the porch. Your run wasn't saved." },
+          cleared,
+          reason
         )
       );
   }
@@ -842,6 +1164,8 @@ export class PlayScene extends Phaser.Scene {
     return scoreFromCounts({
       coins: this.coins,
       porchesLit: this.porchesLit,
+      keys: this.keysHeld,
+      switches: this.switchesThrown,
       finished: this.cleared,
     });
   }
@@ -850,6 +1174,9 @@ export class PlayScene extends Phaser.Scene {
     if (!this.hud || !this.player) return;
     this.hud.score.setText(String(this.currentScore()));
     this.hud.lives.setText("🏮".repeat(Math.max(0, this.lives)) || "—");
+    this.hud.keys.setText(
+      this.level.keys.length ? `🔑 ${this.keysHeld}/${this.level.keys.length}` : ""
+    );
     const progress = Phaser.Math.Clamp(this.player.x / this.level.finishX, 0, 1);
     this.hud.bar.width = Math.max(4, (this.scale.width - 28) * progress);
   }
@@ -886,10 +1213,6 @@ export class PlayScene extends Phaser.Scene {
 
   private toggleMute(): boolean {
     this.muted = !this.muted;
-    // `sound.mute` rides a WebAudio gain node that does not reliably take the
-    // change (Chromium keeps reporting gain 1 after the set), so our own flag
-    // is the source of truth: sfx() already checks it, and the looping track
-    // gets stopped outright rather than trusted to go quiet.
     this.sound.mute = this.muted;
     if (this.muted) {
       this.sound.stopByKey("bgm");
@@ -901,8 +1224,75 @@ export class PlayScene extends Phaser.Scene {
     return this.muted;
   }
 
+  // ------------------------------------------------------------------ update
+
+  /** Turn each patrolling board around when it reaches the end of its leash. */
+  private stepMovingBoards() {
+    for (const m of this.moving) {
+      const mv = m.def.move!;
+      const body = m.obj.body as Phaser.Physics.Arcade.Body;
+      m.prevX = m.obj.x;
+      m.prevY = m.obj.y;
+      if (mv.dx) {
+        const amp = Math.abs(mv.dx);
+        if (m.obj.x > m.homeX + amp && body.velocity.x > 0) body.setVelocityX(-Math.abs(body.velocity.x));
+        else if (m.obj.x < m.homeX - amp && body.velocity.x < 0) body.setVelocityX(Math.abs(body.velocity.x));
+      }
+      if (mv.dy) {
+        const amp = Math.abs(mv.dy);
+        if (m.obj.y > m.homeY + amp && body.velocity.y > 0) body.setVelocityY(-Math.abs(body.velocity.y));
+        else if (m.obj.y < m.homeY - amp && body.velocity.y < 0) body.setVelocityY(Math.abs(body.velocity.y));
+      }
+      const deco = m.obj.getData("deco") as Phaser.GameObjects.Image | undefined;
+      if (deco) {
+        deco.x = m.obj.x;
+        deco.y = m.obj.y - 8;
+      }
+    }
+  }
+
+  /**
+   * Horizontal only. Arcade already lifts a rider when an immovable body rises
+   * into them, so adding the vertical delta here too would apply it twice and
+   * jitter the lantern off the board. Sideways is the axis Arcade ignores.
+   */
+  private carryRider() {
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    if (!body.touching.down && !body.blocked.down) return;
+    for (const m of this.moving) {
+      if (!m.def.move?.dx) continue;
+      const pb = m.obj.body as Phaser.Physics.Arcade.Body;
+      const overlapX = Math.abs(this.player.x - m.obj.x) < m.obj.width / 2 + body.halfWidth;
+      const restingOn = Math.abs(body.bottom - pb.top) < 10;
+      if (overlapX && restingOn) {
+        this.player.x += m.obj.x - m.prevX;
+        return;
+      }
+    }
+  }
+
+  private stepBlinkingBoards() {
+    const t = this.time.now;
+    for (const b of this.blinking) {
+      const bl = b.def.blink!;
+      const phase = (t / bl.period + (bl.offset ?? 0)) % 1;
+      const solid = phase < (bl.duty ?? 0.6);
+      const body = b.obj.body as Phaser.Physics.Arcade.Body;
+      if (body.enable !== solid) {
+        body.enable = solid;
+        b.obj.setAlpha(solid ? 1 : 0.22);
+        const deco = b.obj.getData("deco") as Phaser.GameObjects.Image | undefined;
+        deco?.setAlpha(solid ? 1 : 0.22);
+      }
+    }
+  }
+
   update() {
     if (!this.player || this.finished || this.paused) return;
+
+    this.stepMovingBoards();
+    this.stepBlinkingBoards();
+
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     const speed = RUN_SPEED[this.level.mood];
     if (this.classic) {
@@ -920,14 +1310,24 @@ export class PlayScene extends Phaser.Scene {
     if (grounded) {
       this.coyoteUntil = this.time.now + COYOTE_MS;
       this.airJumpsLeft = AIR_JUMPS;
+      if (!this.wasGrounded) {
+        this.stretch(0.88, 160);
+        this.dust.emitParticleAt(this.player.x, this.player.y + 26, 8);
+        this.cameras.main.shake(70, 0.002);
+        this.sfx("sfx-land", () => undefined);
+      }
       if (this.textures.exists("lantern") && this.player.texture.key !== "lantern") {
         this.player.setTexture("lantern");
-        this.applySpriteScale();
       }
-    } else if (this.holdingJump && body.velocity.y < 0) {
-      body.setVelocityY(body.velocity.y + HOLD_V * 0.016);
+    } else {
+      this.onIce = false;
+      if (this.holdingJump && body.velocity.y < 0) {
+        body.setVelocityY(body.velocity.y + HOLD_V * 0.016);
+      }
     }
+    this.wasGrounded = grounded;
 
+    this.carryRider();
     this.player.setAngle(Phaser.Math.Clamp(body.velocity.y * 0.02, -12, 14));
 
     if (this.player.y > WORLD_HEIGHT - 40) this.hurt("puddle");

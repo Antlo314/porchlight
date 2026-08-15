@@ -11,7 +11,8 @@ import { ensureGameRunTable } from "@/lib/games/ensure";
 import { dailySeed, getLevel } from "@/lib/games/levels";
 import { parseEvents, validateRun } from "@/lib/games/scoring";
 import { issueTicket, mintNonce, readTicket, TICKET_TTL_MS } from "@/lib/games/session";
-import { GAME_ID, isLevelId, RUN_STATUS } from "@/lib/games/types";
+import { courseLocked, nextCourse } from "@/lib/games/progress";
+import { COURSE_ORDER, GAME_ID, isLevelId, RUN_STATUS, type LevelId } from "@/lib/games/types";
 import { goalsMet, parseMoves, replay } from "@/lib/quilt/engine";
 import { isNightId, STORY_NIGHTS } from "@/lib/quilt/nights";
 import { atlantaWeekKey } from "@/lib/quilt/week";
@@ -29,12 +30,51 @@ export type StartRunResult =
     }
   | { ok: false; error: string };
 
+/** Courses the player has actually cleared, in no particular order. */
+export async function clearedCourses(userId: string): Promise<LevelId[]> {
+  await ensureGameRunTable();
+  const rows = await db.gameRun.findMany({
+    where: { userId, game: GAME_ID, finished: true },
+    select: { levelId: true },
+  });
+  return [...new Set(rows.map((r) => r.levelId))].filter(isLevelId);
+}
+
+export type CourseProgress = {
+  cleared: LevelId[];
+  next: LevelId;
+  demo: boolean;
+};
+
+export async function loadCourseProgress(): Promise<CourseProgress> {
+  const user = await currentUser().catch(() => null);
+  if (!user) return { cleared: [], next: COURSE_ORDER[0]!, demo: true };
+  const cleared = await clearedCourses(user.id).catch(() => [] as LevelId[]);
+  return { cleared, next: nextCourse(cleared), demo: false };
+}
+
 export async function startRunAction(levelId: string): Promise<StartRunResult> {
   if (!isLevelId(levelId)) {
     return { ok: false, error: "That course isn't on the board." };
   }
 
   const user = await currentUser().catch(() => null);
+
+  // Guests get the first course and the daily; the ladder needs an account to
+  // remember what you cleared.
+  if (user) {
+    const cleared = await clearedCourses(user.id).catch(() => [] as LevelId[]);
+    const needs = courseLocked(levelId, cleared);
+    if (needs) {
+      const name = needs.replace(/-/g, " ");
+      return { ok: false, error: `Finish ${name} first — the block opens in order.` };
+    }
+  } else if (levelId !== COURSE_ORDER[0] && levelId !== "daily") {
+    return {
+      ok: false,
+      error: "Log in to run the later blocks. Kirkwood and the Daily Block are open to guests.",
+    };
+  }
   const seed =
     levelId === "daily" ? dailySeed(user?.neighborhoodId ?? null) : levelId;
   const nonce = mintNonce();

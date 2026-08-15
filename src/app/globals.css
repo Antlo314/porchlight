@@ -345,6 +345,84 @@ body::before {
   animation: quilt-rise 1s ease-out forwards;
 }
 
+/* ---- Light the Block menu ---- */
+
+@keyframes ltb-drift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.ltb-drift-far {
+  animation: ltb-drift 64s linear infinite;
+}
+
+.ltb-drift-near {
+  animation: ltb-drift 32s linear infinite;
+}
+
+@keyframes ltb-ember {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(0.6);
+  }
+  15% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--dx, 10px), -120px, 0) scale(1.1);
+  }
+}
+
+.ltb-ember {
+  animation: ltb-ember var(--dur, 5s) ease-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+@keyframes ltb-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-2deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(2deg);
+  }
+}
+
+.ltb-bob {
+  animation: ltb-bob 3.4s ease-in-out infinite;
+}
+
+@keyframes ltb-glow {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.12);
+  }
+}
+
+.ltb-glow {
+  animation: ltb-glow 2.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ltb-drift-far,
+  .ltb-drift-near,
+  .ltb-ember,
+  .ltb-bob,
+  .ltb-glow {
+    animation: none;
+  }
+}
+
 @view-transition {
   navigation: auto;
 }

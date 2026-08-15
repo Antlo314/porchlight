@@ -2,6 +2,7 @@ import { currentUser } from "@/lib/auth";
 import { GamesHub } from "@/components/games/GamesHub";
 import { gameCreditUsage } from "@/lib/games/economy";
 import { settleLastWeek } from "@/lib/quilt/weekly";
+import { loadCourseProgress } from "./actions";
 
 export const metadata = {
   title: "Games",
@@ -23,10 +24,16 @@ export default async function GamesPage() {
   await settleLastWeek().catch(() => undefined);
 
   const usage = user ? await gameCreditUsage(user.id).catch(() => null) : null;
+  const progress = await loadCourseProgress();
 
   return (
     <div className="pb-10">
-      <GamesHub demo={!user} remainingToday={usage?.remainingToday ?? 0} />
+      <GamesHub
+        demo={!user}
+        remainingToday={usage?.remainingToday ?? 0}
+        cleared={progress.cleared}
+        next={progress.next}
+      />
     </div>
   );
 }

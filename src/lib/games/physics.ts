@@ -13,6 +13,7 @@ export const PLAYER_START_X = 90;
 export const PLAYER_W = 44;
 export const PLAYER_H = 62;
 export const WORLD_HEIGHT = 720;
+export const GROUND_Y = 520;
 export const GRAVITY_Y = 1180;
 
 /** The lantern auto-runs; mood is the course's difficulty dial. */
@@ -31,9 +32,23 @@ export const COYOTE_MS = 110;
 export const BUFFER_MS = 130;
 export const LIVES = 3;
 
+/** Bounce pads. Roughly double a normal jump. */
+export const SPRING_V = -880;
+/** How long a crumbling board holds once it takes weight. */
+export const CRUMBLE_MS = 420;
+/** How long before a crumbled board comes back. */
+export const CRUMBLE_RESPAWN_MS = 2600;
+/** Ice keeps the lantern drifting for a beat after the ground changes. */
+export const ICE_DRAG = 0.055;
+
 /** Peak of a single jump, in pixels. Level geometry has to fit under this. */
 export function jumpHeight(): number {
   return (JUMP_V * JUMP_V) / (2 * GRAVITY_Y);
+}
+
+/** Peak of a spring launch, in pixels. */
+export function springHeight(): number {
+  return (SPRING_V * SPRING_V) / (2 * GRAVITY_Y);
 }
 
 /** Fastest an honest run can reach the ribbon: full speed, never stopped. */

@@ -5,30 +5,44 @@ import { useRouter } from "next/navigation";
 import { startRunAction, submitRunAction } from "@/app/(games)/games/actions";
 import { Button, ButtonLink } from "@/components/ui";
 import type { GameControls, RunOutcome } from "@/game/light-the-block/boot";
-import { listCourses } from "@/lib/games/levels";
-import type { LevelId } from "@/lib/games/types";
+import { getLevel } from "@/lib/games/levels";
+import { COURSE_ORDER, type LevelId } from "@/lib/games/types";
 import { isLevelId } from "@/lib/games/types";
 
 const PAD =
   "pointer-events-auto select-none touch-none flex items-center justify-center rounded-full border border-cream/25 bg-ink/55 font-semibold text-cream backdrop-blur-sm transition-transform duration-100 active:scale-95 active:bg-porch-600/80";
+
+const MOOD_WASH: Record<string, string> = {
+  dusk: "linear-gradient(160deg, #3a2a4a 0%, #c2661b 55%, #2b2420 100%)",
+  storm: "linear-gradient(160deg, #1a2430 0%, #3d4a58 55%, #1c1614 100%)",
+  night: "linear-gradient(160deg, #0d1020 0%, #1b2450 55%, #14181c 100%)",
+};
 
 export function LightTheBlockCanvas({ levelId }: { levelId: string }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<GameControls | null>(null);
   const router = useRouter();
 
+  const id: LevelId = isLevelId(levelId) ? levelId : "kirkwood";
+  const level = getLevel(id, id);
+
+  const [phase, setPhase] = useState<"intro" | "play">("intro");
   const [error, setError] = useState<string | null>(null);
   const [booting, setBooting] = useState(true);
   const [ready, setReady] = useState(false);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(false);
-  const [outcome, setOutcome] = useState<{ result: RunOutcome; cleared: boolean } | null>(
-    null
-  );
+  const [outcome, setOutcome] = useState<{
+    result: RunOutcome;
+    cleared: boolean;
+    reason?: string;
+  } | null>(null);
   const [replayKey, setReplayKey] = useState(0);
 
-  const id: LevelId = isLevelId(levelId) ? levelId : "kirkwood";
-  const levelName = listCourses().find((c) => c.id === id)?.name ?? "Light the Block";
+  const nextCourse = (() => {
+    const i = COURSE_ORDER.indexOf(id);
+    return i >= 0 && i < COURSE_ORDER.length - 1 ? COURSE_ORDER[i + 1]! : null;
+  })();
 
   const replay = useCallback(() => {
     controlsRef.current = null;
@@ -37,12 +51,14 @@ export function LightTheBlockCanvas({ levelId }: { levelId: string }) {
     setReady(false);
     setPaused(false);
     setBooting(true);
+    setPhase("intro");
     setReplayKey((n) => n + 1);
   }, []);
 
   const exit = useCallback(() => router.push("/games"), [router]);
 
   useEffect(() => {
+    if (phase !== "play") return;
     const el = hostRef.current;
     if (!el) return;
     let game: { destroy: (remove: boolean) => void } | null = null;
@@ -78,9 +94,9 @@ export function LightTheBlockCanvas({ levelId }: { levelId: string }) {
           setPaused(status.paused);
           setMuted(status.muted);
         },
-        onResult: (result, cleared) => {
+        onResult: (result, cleared, reason) => {
           if (cancelled) return;
-          setOutcome({ result, cleared });
+          setOutcome({ result, cleared, reason });
         },
       });
     })().catch((err: unknown) => {
@@ -104,7 +120,67 @@ export function LightTheBlockCanvas({ levelId }: { levelId: string }) {
       document.removeEventListener("touchmove", prevent);
       game?.destroy(true);
     };
-  }, [id, replayKey, exit, replay]);
+  }, [id, replayKey, phase, exit, replay]);
+
+  if (phase === "intro") {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex flex-col justify-between overflow-y-auto px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.5rem,env(safe-area-inset-top))]"
+        style={{ background: MOOD_WASH[level.mood] }}
+      >
+        <button
+          type="button"
+          className="min-h-11 self-start text-sm font-semibold text-cream/80"
+          onClick={exit}
+        >
+          ← Games
+        </button>
+
+        <div className="animate-fade-in mx-auto w-full max-w-md text-center text-cream">
+          <div className="relative mx-auto mb-4 h-20 w-20">
+            <span className="ltb-glow absolute -inset-4 rounded-full bg-porch-400/50 blur-xl" />
+            <span className="ltb-bob relative block text-6xl leading-none">🏮</span>
+          </div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-porch-200">
+            {id === "daily" ? "Daily Block" : `Block ${COURSE_ORDER.indexOf(id) + 1} of ${COURSE_ORDER.length}`}
+          </p>
+          <h1 className="mt-2 font-display text-4xl font-semibold">{level.name}</h1>
+          <p className="mx-auto mt-3 max-w-xs text-[15px] leading-snug text-cream/85">
+            {level.scene}
+          </p>
+
+          <div className="mt-6 rounded-card border border-cream/15 bg-ink/40 p-4 text-left backdrop-blur-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-porch-200">
+              This block teaches
+            </p>
+            <p className="mt-1 text-sm text-cream/90">{level.teaches}</p>
+            <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
+              {[
+                ["Porches", level.porches.length],
+                ["Coins", level.coins.length],
+                ["Keys", level.keys.length],
+              ].map(([label, n]) => (
+                <div key={label as string} className="rounded-xl bg-cream/10 py-2">
+                  <dd className="font-display text-lg font-semibold tabular-nums">{n}</dd>
+                  <dt className="text-[11px] text-cream/70">{label}</dt>
+                </div>
+              ))}
+            </dl>
+          </div>
+
+          <p className="mt-4 text-xs text-cream/70">
+            Tap to jump · tap again to float · swipe down to drop through
+          </p>
+        </div>
+
+        <div className="mx-auto w-full max-w-md">
+          <Button size="lg" className="mt-6" onClick={() => setPhase("play")}>
+            Light it up
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const playing = ready && !outcome && !error;
 
@@ -118,13 +194,8 @@ export function LightTheBlockCanvas({ levelId }: { levelId: string }) {
         </div>
       )}
 
-      {/* Top chrome. The wrapper stays click-through so taps land on the canvas. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
-        <button
-          type="button"
-          className={`${PAD} h-11 min-w-11 px-4 text-sm`}
-          onClick={exit}
-        >
+        <button type="button" className={`${PAD} h-11 min-w-11 px-4 text-sm`} onClick={exit}>
           Exit
         </button>
         {playing && (
@@ -151,7 +222,6 @@ export function LightTheBlockCanvas({ levelId }: { levelId: string }) {
         )}
       </div>
 
-      {/* Thumb controls. Tapping the canvas anywhere also jumps. */}
       {playing && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex items-end justify-between px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           <button
@@ -173,7 +243,6 @@ export function LightTheBlockCanvas({ levelId }: { levelId: string }) {
             onContextMenu={(e) => e.preventDefault()}
             onPointerDown={(e) => {
               e.preventDefault();
-              // Capture so a thumb that slides off the pad still ends the hold.
               try {
                 e.currentTarget.setPointerCapture(e.pointerId);
               } catch {
@@ -193,7 +262,8 @@ export function LightTheBlockCanvas({ levelId }: { levelId: string }) {
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-ink/70 px-4">
           <ResultPanel
             outcome={outcome}
-            levelName={levelName}
+            levelName={level.name}
+            nextCourse={nextCourse}
             onReplay={replay}
             onExit={exit}
           />
@@ -215,15 +285,17 @@ export function LightTheBlockCanvas({ levelId }: { levelId: string }) {
 function ResultPanel({
   outcome,
   levelName,
+  nextCourse,
   onReplay,
   onExit,
 }: {
-  outcome: { result: RunOutcome; cleared: boolean };
+  outcome: { result: RunOutcome; cleared: boolean; reason?: string };
   levelName: string;
+  nextCourse: LevelId | null;
   onReplay: () => void;
   onExit: () => void;
 }) {
-  const { result, cleared } = outcome;
+  const { result, cleared, reason } = outcome;
   const title = !result.ok ? "Run ended" : cleared ? "Block lit" : "Lantern snuffed";
 
   return (
@@ -242,6 +314,7 @@ function ResultPanel({
           <p className="mt-2 text-sm text-ink-soft">
             {result.porchesLit} porches · {result.coins} coins
           </p>
+          {reason && <p className="mt-2 text-sm font-semibold text-ink">{reason}</p>}
           <p className="mt-3 text-sm font-semibold">
             {result.demo
               ? "Log in to keep these Porch Credits"
@@ -256,7 +329,17 @@ function ResultPanel({
         <p className="mt-3 text-sm text-ink-soft">{result.error}</p>
       )}
 
-      <Button size="lg" className="mt-5" onClick={onReplay}>
+      {cleared && nextCourse && result.ok && !result.demo && (
+        <ButtonLink
+          size="lg"
+          href={`/games/light-the-block?level=${nextCourse}`}
+          className="mt-4"
+        >
+          Next block →
+        </ButtonLink>
+      )}
+
+      <Button size="lg" variant={cleared && nextCourse ? "secondary" : "primary"} className="mt-2" onClick={onReplay}>
         Play again
       </Button>
       <Button size="lg" variant="ghost" className="mt-2" onClick={onExit}>
