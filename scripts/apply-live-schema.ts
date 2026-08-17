@@ -51,13 +51,37 @@ const STATEMENTS = [
       FOREIGN KEY ("neighborhoodId") REFERENCES "Neighborhood"("id") ON DELETE CASCADE ON UPDATE CASCADE;
   EXCEPTION WHEN duplicate_object THEN NULL;
   END $$`,
+  `CREATE TABLE IF NOT EXISTS "GamePresence" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT,
+    "guestKey" TEXT,
+    "neighborhoodId" TEXT,
+    "name" TEXT NOT NULL,
+    "course" TEXT NOT NULL,
+    "status" TEXT NOT NULL,
+    "score" INTEGER NOT NULL DEFAULT 0,
+    "heartbeatAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "GamePresence_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "GamePresence_userId_key" ON "GamePresence"("userId")`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "GamePresence_guestKey_key" ON "GamePresence"("guestKey")`,
+  `CREATE INDEX IF NOT EXISTS "GamePresence_neighborhoodId_heartbeatAt_idx"
+    ON "GamePresence"("neighborhoodId", "heartbeatAt")`,
+  `CREATE INDEX IF NOT EXISTS "GamePresence_heartbeatAt_idx" ON "GamePresence"("heartbeatAt")`,
+  `DO $$ BEGIN
+    ALTER TABLE "GamePresence"
+      ADD CONSTRAINT "GamePresence_userId_fkey"
+      FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  EXCEPTION WHEN duplicate_object THEN NULL;
+  END $$`,
 ];
 
 async function main() {
   for (const sql of STATEMENTS) {
     await db.$executeRawUnsafe(sql);
   }
-  console.log("Live schema: storm/safety columns are present.");
+  console.log("Live schema: storm/safety/presence columns are present.");
 }
 
 main()

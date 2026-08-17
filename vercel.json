@@ -1,0 +1,9 @@
+{
+  "fluid": true,
+  "crons": [
+    {
+      "path": "/api/games/presence/sweep",
+      "schedule": "* * * * *"
+    }
+  ]
+}

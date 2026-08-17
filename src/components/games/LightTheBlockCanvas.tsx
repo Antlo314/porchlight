@@ -8,6 +8,7 @@ import type { GameControls, RunOutcome } from "@/game/light-the-block/boot";
 import { getLevel } from "@/lib/games/levels";
 import { COURSE_ORDER, type LevelId } from "@/lib/games/types";
 import { isLevelId } from "@/lib/games/types";
+import { BlockLobby } from "./BlockLobby";
 
 const PAD =
   "pointer-events-auto select-none touch-none flex items-center justify-center rounded-full border border-cream/25 bg-ink/55 font-semibold text-cream backdrop-blur-sm transition-transform duration-100 active:scale-95 active:bg-porch-600/80";
@@ -38,6 +39,7 @@ export function LightTheBlockCanvas({ levelId }: { levelId: string }) {
     reason?: string;
   } | null>(null);
   const [replayKey, setReplayKey] = useState(0);
+  const presenceStatus = outcome ? "done" : phase === "play" ? "running" : "lobby";
 
   const nextCourse = (() => {
     const i = COURSE_ORDER.indexOf(id);
@@ -195,6 +197,12 @@ export function LightTheBlockCanvas({ levelId }: { levelId: string }) {
           Lighting the porch…
         </div>
       )}
+
+      <div className="pointer-events-none absolute left-3 top-16 z-10 w-[min(16rem,calc(100%-1.5rem))] pt-[max(0.2rem,env(safe-area-inset-top))]">
+        <div className="pointer-events-auto">
+          <BlockLobby course={id} status={presenceStatus} compact />
+        </div>
+      </div>
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between px-3 pt-[max(0.6rem,env(safe-area-inset-top))]">
         <button type="button" className={`${PAD} h-11 min-w-11 px-4 text-sm`} onClick={exit}>

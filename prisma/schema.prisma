@@ -68,6 +68,7 @@ model User {
   gameRuns         GameRun[]
   passwordResets   PasswordResetToken[]
   stormCheckIns    StormCheckIn[]
+  gamePresence     GamePresence?
 }
 
 model Neighborhood {
@@ -383,6 +384,24 @@ model GameRun {
 
   @@index([userId, startedAt])
   @@index([status, startedAt])
+}
+
+// Who is on a block right now. Heartbeat only — never used for credits.
+model GamePresence {
+  id             String   @id @default(cuid())
+  userId         String?  @unique
+  user           User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guestKey       String?  @unique
+  neighborhoodId String?
+  name           String
+  course         String
+  status         String   // lobby | running | done
+  score          Int      @default(0)
+  heartbeatAt    DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  @@index([neighborhoodId, heartbeatAt])
+  @@index([heartbeatAt])
 }
 
 // ─────────────────────────────────────────────────────────────

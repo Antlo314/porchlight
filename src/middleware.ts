@@ -16,6 +16,10 @@ const PUBLIC_PATHS = [
   "/api/stripe/webhook",
 ];
 
+function isPublicGamesApi(pathname: string) {
+  return pathname === "/api/games/presence" || pathname.startsWith("/api/games/presence/");
+}
+
 /**
  * Invite landing pages are public: /join/<code> is the first screen an invited
  * neighbor sees, before they have an account. PUBLIC_PATHS is exact-match only,
@@ -44,6 +48,7 @@ export async function middleware(req: NextRequest) {
     PUBLIC_PATHS.includes(pathname) ||
     isPublicInvitePath(pathname) ||
     isPublicGamesPath(pathname) ||
+    isPublicGamesApi(pathname) ||
     pathname.startsWith("/_next") ||
     isStaticAsset
   ) {

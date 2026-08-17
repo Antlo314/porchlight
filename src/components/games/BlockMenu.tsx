@@ -2,6 +2,7 @@
 
 import { ButtonLink } from "@/components/ui";
 import { COURSE_ORDER, type LevelId } from "@/lib/games/types";
+import { BlockLobby } from "./BlockLobby";
 
 type Course = {
   id: LevelId;
@@ -152,6 +153,8 @@ export function BlockMenu({
           </p>
         </div>
       </div>
+
+      <BlockLobby course="lobby" status="lobby" />
 
       {/* -------------------------------------------------------- daily block */}
       {daily && (
