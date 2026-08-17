@@ -1,5 +1,6 @@
 import { PostCard } from "@/components/post/PostCard";
 import { PostTypeFilter } from "@/components/post/PostTypeFilter";
+import { StormBanner } from "@/components/storm/StormBanner";
 import { EmptyState, Fab, LanternMark } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -25,11 +26,13 @@ export default async function FeedPage({
   // Home neighborhood plus any the member follows.
   const neighborhoodIds = await visibleNeighborhoodIds(user);
 
-  const [posts, upcomingEvents] = await Promise.all([
+  const now = new Date();
+  const [posts, upcomingEvents, stormRoster] = await Promise.all([
     db.post.findMany({
       where: {
         neighborhoodId: { in: neighborhoodIds },
         ...(activeType ? { type: activeType } : {}),
+        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
       },
       // Pinned notices ride at the top of the block, then newest first.
       orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
@@ -37,6 +40,7 @@ export default async function FeedPage({
       include: {
         author: { select: { id: true, name: true, avatarUrl: true } },
         event: { select: { startsAt: true, endsAt: true, location: true } },
+        safety: { select: { location: true, happenedAt: true, expiresAt: true } },
         _count: { select: { comments: true, reactions: true } },
       },
     }),
@@ -46,10 +50,23 @@ export default async function FeedPage({
         post: { neighborhoodId: { in: neighborhoodIds } },
       },
     }),
+    user.neighborhood.stormActive
+      ? db.stormCheckIn.findMany({
+          where: { neighborhoodId: user.neighborhoodId },
+          select: { status: true },
+        })
+      : Promise.resolve([]),
   ]);
 
   return (
     <div className="space-y-3">
+      {user.neighborhood.stormActive && (
+        <StormBanner
+          neighborhoodName={user.neighborhood.name}
+          safe={stormRoster.filter((r) => r.status === "SAFE").length}
+          needHelp={stormRoster.filter((r) => r.status === "NEED_HELP").length}
+        />
+      )}
       <PostTypeFilter active={activeType} />
 
       {/* The events calendar has no tab of its own (five is the limit at 375px),

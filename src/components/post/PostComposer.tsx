@@ -32,6 +32,8 @@ export function PostComposer({
     startsAt?: string;
     endsAt?: string;
     location?: string;
+    safetyLocation?: string;
+    safetyWhen?: string;
   }) => Promise<{ error?: string } | undefined>;
 }) {
   const [pending, startTransition] = useTransition();
@@ -41,10 +43,16 @@ export function PostComposer({
   const [startsAt, setStartsAt] = useState("");
   const [endsAt, setEndsAt] = useState("");
   const [location, setLocation] = useState("");
+  const [safetyLocation, setSafetyLocation] = useState("");
+  const [safetyWhen, setSafetyWhen] = useState("");
+  const [safetyGate, setSafetyGate] = useState<"ask" | "person" | "incident">(
+    defaultType === "SAFETY" ? "ask" : "incident",
+  );
   const [images, setImages] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const isEvent = type === "EVENT";
+  const isSafety = type === "SAFETY";
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -58,6 +66,10 @@ export function PostComposer({
       setError("Events need a date and a location");
       return;
     }
+    if (isSafety && !safetyLocation.trim()) {
+      setError("Notices need a place — a block or street, not a person");
+      return;
+    }
 
     startTransition(async () => {
       const result = await createPost({
@@ -68,6 +80,8 @@ export function PostComposer({
         startsAt: isEvent ? startsAt : undefined,
         endsAt: isEvent && endsAt ? endsAt : undefined,
         location: isEvent ? location.trim() : undefined,
+        safetyLocation: isSafety ? safetyLocation.trim() : undefined,
+        safetyWhen: isSafety && safetyWhen ? safetyWhen : undefined,
       });
       if (result?.error) setError(result.error);
     });
@@ -95,7 +109,10 @@ export function PostComposer({
                 key={option}
                 type="button"
                 aria-pressed={active}
-                onClick={() => setType(option)}
+                onClick={() => {
+                  setType(option);
+                  if (option === "SAFETY") setSafetyGate("ask");
+                }}
                 className={`min-h-16 rounded-card border p-3 text-left transition-colors duration-100 active:scale-[0.99] ${
                   active
                     ? "border-porch-600 bg-porch-50"
@@ -117,6 +134,56 @@ export function PostComposer({
         </div>
       </Field>
 
+      {isSafety && safetyGate !== "incident" && (
+        <div className="animate-slide-up space-y-3 rounded-card border border-pine-200 bg-pine-50 p-4">
+          {safetyGate === "ask" ? (
+            <>
+              <p className="font-display text-[1.15rem] font-semibold leading-snug">
+                Is this about an incident, or about a person?
+              </p>
+              <p className="text-sm leading-relaxed text-ink-soft">
+                Notices last fourteen days, then they leave. We keep them
+                about what happened — not who someone thinks they saw.
+              </p>
+              <div className="grid gap-2">
+                <Button
+                  type="button"
+                  onClick={() => setSafetyGate("incident")}
+                >
+                  An incident
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setSafetyGate("person")}
+                >
+                  A person
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="font-display text-[1.15rem] font-semibold leading-snug">
+                Describe the incident instead.
+              </p>
+              <p className="text-sm leading-relaxed text-ink-soft">
+                Physical descriptions of people rarely help a neighbor and
+                often harm one. If something happened, write what, where,
+                and when. That is enough.
+              </p>
+              <Button
+                type="button"
+                onClick={() => setSafetyGate("incident")}
+              >
+                Write the incident
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+
+      {!(isSafety && safetyGate !== "incident") && (
+      <>
       <Field
         label="Title"
         hint="Optional, but it helps neighbors scan the feed."
@@ -134,11 +201,23 @@ export function PostComposer({
         </div>
       </Field>
 
-      <Field label="Post" required>
+      <Field
+        label={isSafety ? "What happened" : "Post"}
+        hint={
+          isSafety
+            ? "Facts only. No speculation, no descriptions of people."
+            : undefined
+        }
+        required
+      >
         <Textarea
           value={body}
           onChange={(e) => setBody(e.target.value.slice(0, MAX_BODY))}
-          placeholder={POST_TYPE_META[type].hint}
+          placeholder={
+            isSafety
+              ? "A transformer blew on the 400 block. Lights are out."
+              : POST_TYPE_META[type].hint
+          }
           maxLength={MAX_BODY}
           required
         />
@@ -146,6 +225,36 @@ export function PostComposer({
           <CharCount value={body} max={MAX_BODY} />
         </div>
       </Field>
+
+      {isSafety && (
+        <div className="animate-slide-up space-y-4 rounded-card border border-pine-200 bg-pine-50/60 p-4">
+          <p className="text-sm font-semibold text-pine-700">
+            Where and when
+          </p>
+          <Field label="Where" hint="A block or street. Not a person." required>
+            <Input
+              value={safetyLocation}
+              onChange={(e) =>
+                setSafetyLocation(e.target.value.slice(0, MAX_LOCATION))
+              }
+              placeholder="400 block of Flat Shoals"
+              maxLength={MAX_LOCATION}
+              required
+            />
+          </Field>
+          <Field label="When" hint="Optional. Approximate is fine.">
+            <Input
+              type="datetime-local"
+              value={safetyWhen}
+              onChange={(e) => setSafetyWhen(e.target.value)}
+            />
+          </Field>
+          <p className="text-xs text-ink-soft">
+            This notice leaves the feed in 14 days so the block does not
+            keep a ledger of dread.
+          </p>
+        </div>
+      )}
 
       {isEvent && (
         <div className="animate-slide-up space-y-4 rounded-card border border-line bg-card p-4">
@@ -200,10 +309,14 @@ export function PostComposer({
           <>
             <Spinner /> Posting…
           </>
+        ) : isSafety ? (
+          "Post the notice"
         ) : (
           "Post to the neighborhood"
         )}
       </Button>
+      </>
+      )}
     </form>
   );
 }

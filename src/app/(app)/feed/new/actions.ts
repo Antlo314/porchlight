@@ -5,11 +5,13 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { serializeImages } from "@/lib/json";
+import { safetyExpiresAt } from "@/lib/safety";
 import { createPostSchema } from "@/lib/validators";
 
 /**
  * Creates a post in the author's own neighborhood (never a client-supplied
- * one), plus the nested EventDetail when the post is an event.
+ * one), plus the nested EventDetail when the post is an event, or a
+ * 14-day SafetyDetail when it is a calm notice.
  */
 export async function createPostAction(input: {
   type: string;
@@ -20,10 +22,13 @@ export async function createPostAction(input: {
   startsAt?: string;
   endsAt?: string;
   location?: string;
+  safetyLocation?: string;
+  safetyWhen?: string;
 }): Promise<{ error?: string } | undefined> {
   const user = await requireUser();
 
   const isEvent = input.type === "EVENT";
+  const isSafety = input.type === "SAFETY";
   const parsed = createPostSchema.safeParse({
     type: input.type,
     title: input.title?.trim() || undefined,
@@ -33,6 +38,11 @@ export async function createPostAction(input: {
     startsAt: isEvent && input.startsAt ? input.startsAt : undefined,
     endsAt: isEvent && input.endsAt ? input.endsAt : undefined,
     location: isEvent && input.location?.trim() ? input.location.trim() : undefined,
+    safetyLocation:
+      isSafety && input.safetyLocation?.trim()
+        ? input.safetyLocation.trim()
+        : undefined,
+    safetyWhen: isSafety && input.safetyWhen ? input.safetyWhen : undefined,
   });
 
   if (!parsed.success) {
@@ -40,6 +50,7 @@ export async function createPostAction(input: {
   }
 
   const data = parsed.data;
+  const expiresAt = isSafety ? safetyExpiresAt() : null;
 
   const post = await db.post.create({
     data: {
@@ -49,6 +60,7 @@ export async function createPostAction(input: {
       title: data.title ?? null,
       body: data.body,
       images: serializeImages(data.images),
+      expiresAt,
       ...(data.type === "EVENT" && data.startsAt && data.location
         ? {
             event: {
@@ -56,6 +68,18 @@ export async function createPostAction(input: {
                 startsAt: data.startsAt,
                 endsAt: data.endsAt ?? null,
                 location: data.location,
+              },
+            },
+          }
+        : {}),
+      ...(data.type === "SAFETY" && data.safetyLocation
+        ? {
+            safety: {
+              create: {
+                location: data.safetyLocation,
+                happenedAt: data.safetyWhen ?? null,
+                about: "INCIDENT",
+                expiresAt: expiresAt!,
               },
             },
           }

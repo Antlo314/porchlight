@@ -4,6 +4,7 @@ import { ProfileLinkRow } from "@/components/profile/ProfileLinkRow";
 import { StatTile } from "@/components/profile/StatTile";
 import { Badge, ButtonLink, Card, CoinIcon, SectionHeading } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
+import { isOwner, isStaff, staffLabel } from "@/lib/staff";
 import { creditBalance } from "@/lib/credits";
 import { db } from "@/lib/db";
 import { pluralize } from "@/lib/format";
@@ -51,7 +52,8 @@ export default async function ProfilePage() {
 
   const completedTrades = tradesAsOwner + tradesAsOfferer;
   const pendingOffers = offersMadePending + offersReceivedPending;
-  const isStaff = user.role === "MODERATOR" || user.role === "ADMIN";
+  const staff = isStaff(user);
+  const owner = isOwner(user);
   const plan = business?.subscription
     ? (PLAN_META[business.subscription.plan as PlanValue] ?? PLAN_META.FREE)
     : null;
@@ -66,9 +68,9 @@ export default async function ProfilePage() {
         joinedAt={user.createdAt}
         verified={user.verifiedAt !== null}
         badge={
-          isStaff ? (
+          staff ? (
             <Badge className="bg-pine-500/10 text-pine-700">
-              🛡️ {user.role === "ADMIN" ? "Admin" : "Moderator"}
+              🛡️ {staffLabel(user)}
             </Badge>
           ) : undefined
         }
@@ -210,13 +212,17 @@ export default async function ProfilePage() {
             sub="Name, bio, and photo"
           />
         </li>
-        {isStaff && (
+        {staff && (
           <li>
             <ProfileLinkRow
-              href="/moderation"
+              href="/hub"
               icon="🛡️"
-              label="Moderation queue"
-              sub="Reports from your neighborhood"
+              label="Hubs"
+              sub={
+                owner
+                  ? "Steward Hub and Block Hub"
+                  : "Block Hub — reports, storm, verify"
+              }
             />
           </li>
         )}

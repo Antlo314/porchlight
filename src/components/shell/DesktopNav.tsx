@@ -15,15 +15,25 @@ const ITEMS: { href: string; label: string; icon: IconName }[] = [
 
 export function DesktopNav({
   unreadMessages = 0,
+  staff = false,
+  owner = false,
 }: {
   unreadMessages?: number;
+  staff?: boolean;
+  owner?: boolean;
 }) {
   const pathname = usePathname();
+  const items = [
+    ...ITEMS,
+    ...(staff
+      ? [{ href: "/hub", label: owner ? "Hubs" : "Block Hub", icon: "eye" as const }]
+      : []),
+  ];
 
   return (
     <nav className="sticky top-20 hidden self-start lg:block">
       <ul className="space-y-1">
-        {ITEMS.map((item) => {
+        {items.map((item) => {
           const active = pathname.startsWith(item.href);
           return (
             <li key={item.href}>

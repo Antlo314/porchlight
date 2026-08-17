@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ModerationQueue } from "@/components/report/ModerationQueue";
 import {
   decodeReason,
@@ -278,7 +279,10 @@ export default async function ModerationPage({
   return (
     <div className="space-y-4">
       <header>
-        <h1 className="text-xl font-bold">Moderation</h1>
+        <Link href="/hub/block" className="text-sm font-semibold text-ink-soft">
+          ← Block Hub
+        </Link>
+        <h1 className="mt-3 text-xl font-bold">Moderation</h1>
         <p className="mt-0.5 text-sm text-ink-soft">
           {openCount > 0
             ? `${openCount} open ${openCount === 1 ? "report" : "reports"} waiting on you, ${moderator.name.split(" ")[0]}.`

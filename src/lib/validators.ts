@@ -44,10 +44,10 @@ export const POST_TYPE_META: Record<
     badgeClass: "bg-line text-ink-soft",
   },
   SAFETY: {
-    label: "Safety",
-    icon: "🚨",
-    hint: "Alert the neighborhood",
-    badgeClass: "bg-red-100 text-red-800",
+    label: "Notice",
+    icon: "🏮",
+    hint: "What happened, where, when — then it leaves",
+    badgeClass: "bg-pine-100 text-pine-800",
   },
   EVENT: {
     label: "Event",
@@ -266,6 +266,9 @@ export const createPostSchema = z
     startsAt: z.coerce.date().optional(),
     endsAt: z.coerce.date().optional(),
     location: z.string().trim().max(200).optional(),
+    // Calm Safety — incident facts, never a person description
+    safetyLocation: z.string().trim().max(200).optional(),
+    safetyWhen: z.coerce.date().optional(),
   })
   .refine((d) => d.type !== "EVENT" || (d.startsAt && d.location), {
     message: "Events need a date and a location",
@@ -274,6 +277,10 @@ export const createPostSchema = z
   .refine((d) => !d.endsAt || !d.startsAt || d.endsAt >= d.startsAt, {
     message: "End time must be after the start time",
     path: ["endsAt"],
+  })
+  .refine((d) => d.type !== "SAFETY" || !!d.safetyLocation, {
+    message: "Notices need a place — a block or street, not a person",
+    path: ["safetyLocation"],
   });
 
 export const createCommentSchema = z.object({

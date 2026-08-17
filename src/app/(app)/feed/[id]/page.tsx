@@ -25,6 +25,7 @@ import { db } from "@/lib/db";
 import { getEventForPost } from "@/lib/events";
 import { formatEventRange, pluralize, timeAgo } from "@/lib/format";
 import { parseImages } from "@/lib/json";
+import { daysLeft, formatSafetyWhen, safetyStillLive } from "@/lib/safety";
 import { POST_TYPE_META, type PostTypeValue } from "@/lib/validators";
 import { canViewNeighborhood } from "../queries";
 import {
@@ -69,6 +70,7 @@ export default async function PostDetailPage({
           author: { select: { id: true, name: true, avatarUrl: true } },
         },
       },
+      safety: true,
     },
   });
   if (!post) notFound();
@@ -163,6 +165,24 @@ export default async function PostDetailPage({
             <Badge className="bg-porch-600 text-white">📌 Pinned</Badge>
           )}
         </div>
+
+        {post.safety && (
+          <p className="mt-3 text-sm font-semibold text-pine-700">
+            {post.safety.location}
+            {formatSafetyWhen(post.safety.happenedAt) && (
+              <span className="block font-normal text-ink-soft">
+                {formatSafetyWhen(post.safety.happenedAt)}
+              </span>
+            )}
+            <span className="mt-0.5 block font-normal text-ink-soft">
+              {safetyStillLive(post.expiresAt)
+                ? `Leaves the feed in ${daysLeft(post.safety.expiresAt)} ${
+                    daysLeft(post.safety.expiresAt) === 1 ? "day" : "days"
+                  }`
+                : "This notice has left the feed."}
+            </span>
+          </p>
+        )}
 
         {post.title && (
           <h1 className="mt-3 text-xl font-bold leading-snug">{post.title}</h1>

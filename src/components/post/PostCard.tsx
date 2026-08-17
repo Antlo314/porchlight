@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Avatar, Badge, Card } from "@/components/ui";
 import { formatEventRange, timeAgo } from "@/lib/format";
 import { parseImages } from "@/lib/json";
+import { daysLeft, formatSafetyWhen } from "@/lib/safety";
 import { POST_TYPE_META, type PostTypeValue } from "@/lib/validators";
 import { PostImages } from "./PostImages";
 
@@ -14,9 +15,15 @@ export type FeedPost = {
   /** Raw JSON column; parsed here with parseImages(). */
   images: string;
   pinned: boolean;
+  expiresAt: Date | null;
   createdAt: Date;
   author: { id: string; name: string; avatarUrl: string | null };
   event: { startsAt: Date; endsAt: Date | null; location: string } | null;
+  safety: {
+    location: string;
+    happenedAt: Date | null;
+    expiresAt: Date;
+  } | null;
   _count: { comments: number; reactions: number };
 };
 
@@ -26,7 +33,11 @@ export function PostCard({ post }: { post: FeedPost }) {
   const images = parseImages(post.images);
 
   return (
-    <Card className="animate-fade-in">
+    <Card
+      className={`animate-fade-in ${
+        post.type === "SAFETY" ? "border-pine-200 bg-pine-50/40" : ""
+      }`}
+    >
       <div className="flex items-start gap-3">
         <Link href={`/profile/${post.author.id}`} className="shrink-0">
           <Avatar name={post.author.name} src={post.author.avatarUrl} />
@@ -60,6 +71,21 @@ export function PostCard({ post }: { post: FeedPost }) {
           <h2 className="font-display text-[1.15rem] font-semibold leading-snug">
             {post.title}
           </h2>
+        )}
+
+        {post.safety && (
+          <p className="mt-1.5 text-sm font-semibold text-pine-700">
+            {post.safety.location}
+            {formatSafetyWhen(post.safety.happenedAt) && (
+              <span className="block font-normal text-ink-soft">
+                {formatSafetyWhen(post.safety.happenedAt)}
+              </span>
+            )}
+            <span className="mt-0.5 block font-normal text-ink-soft">
+              Leaves in {daysLeft(post.safety.expiresAt)}{" "}
+              {daysLeft(post.safety.expiresAt) === 1 ? "day" : "days"}
+            </span>
+          </p>
         )}
 
         {post.event && (

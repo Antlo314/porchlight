@@ -67,6 +67,7 @@ model User {
   wants            Want[]
   gameRuns         GameRun[]
   passwordResets   PasswordResetToken[]
+  stormCheckIns    StormCheckIn[]
 }
 
 model Neighborhood {
@@ -78,6 +79,8 @@ model Neighborhood {
   state     String  @default("GA")
   lat       Float
   lng       Float
+  stormActive      Boolean   @default(false)
+  stormActivatedAt DateTime?
   createdAt DateTime @default(now())
 
   users          User[]
@@ -87,6 +90,7 @@ model Neighborhood {
   followers      NeighborhoodFollow[]
   jobRequests    JobRequest[]
   wants          Want[]
+  stormCheckIns  StormCheckIn[]
 }
 
 // Members see their home neighborhood plus any they follow (nearby areas).
@@ -115,12 +119,14 @@ model Post {
   body           String
   images         String   @default("[]") // JSON array of URLs
   pinned         Boolean  @default(false)
+  expiresAt      DateTime? // SAFETY notices fall off after 14 days
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   comments  Comment[]
   reactions Reaction[]
   event     EventDetail?
+  safety    SafetyDetail?
 
   @@index([neighborhoodId, createdAt])
 }
@@ -132,6 +138,33 @@ model EventDetail {
   endsAt    DateTime?
   location  String
   rsvps     EventRsvp[]
+}
+
+// Calm Safety — incident facts only. Never a person description.
+model SafetyDetail {
+  postId     String   @id
+  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  location   String
+  happenedAt DateTime?
+  about      String   @default("INCIDENT") // INCIDENT only
+  expiresAt  DateTime
+}
+
+// Storm Mode roster — one row per neighbor per neighborhood for the live storm.
+model StormCheckIn {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  neighborhoodId String
+  neighborhood   Neighborhood @relation(fields: [neighborhoodId], references: [id], onDelete: Cascade)
+  status         String   // SAFE | NEED_HELP
+  resource       String?  // POWER | GENERATOR | CHAINSAW | ROOM | FREEZER | OTHER
+  note           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([userId, neighborhoodId])
+  @@index([neighborhoodId, status])
 }
 
 model EventRsvp {

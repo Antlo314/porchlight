@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { createSession } from "@/lib/session";
+import { isOwnerEmail } from "@/lib/staff";
 import { loginSchema } from "@/lib/validators";
 
 export async function POST(req: NextRequest) {
@@ -31,6 +32,13 @@ export async function POST(req: NextRequest) {
       { error: "Incorrect email or password" },
       { status: 401 }
     );
+  }
+
+  if (isOwnerEmail(user.email) && user.role !== "ADMIN") {
+    user = await db.user.update({
+      where: { id: user.id },
+      data: { role: "ADMIN" },
+    });
   }
 
   await createSession({

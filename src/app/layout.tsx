@@ -17,7 +17,7 @@ const fraunces = Fraunces({
 });
 
 const DESCRIPTION =
-  "Your Georgia neighborhood, together — news, barter, local services, and neighbors you can actually reach.";
+  "Your Georgia neighborhood, together — trades, calm notices, Storm Mode, and neighbors you can actually reach.";
 
 export const metadata: Metadata = {
   // Set NEXT_PUBLIC_APP_URL to the real domain at deploy time so share images

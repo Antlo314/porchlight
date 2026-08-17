@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { authSecretConfigured, createSession } from "@/lib/session";
 import { grantSignupBonus } from "@/lib/credits";
 import { awardInviteBonus, resolveInvite } from "@/lib/invites";
+import { isOwnerEmail } from "@/lib/staff";
 import { invitedSignupSchema, signupSchema } from "@/lib/validators";
 
 type Account = {
@@ -135,6 +136,7 @@ export async function POST(req: NextRequest) {
         neighborhoodId,
         passwordHash: await bcrypt.hash(password, 11),
         updatedAt: new Date(),
+        role: isOwnerEmail(email) ? "ADMIN" : "MEMBER",
       },
     });
     try {

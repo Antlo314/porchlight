@@ -1,7 +1,11 @@
+import Link from "next/link";
+import { StormToggle } from "@/components/storm/StormToggle";
 import { Card } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
+import { isStaff } from "@/lib/staff";
 import { db } from "@/lib/db";
 import { pluralize } from "@/lib/format";
+import { setStormModeAction } from "../storm/actions";
 import {
   NeighborhoodExplorer,
   type ExploreNeighborhood,
@@ -67,7 +71,32 @@ export default async function NeighborhoodPage() {
             </span>
           </span>
         </div>
+        {user.neighborhood.stormActive && (
+          <p className="mt-3 text-sm font-semibold text-pine-800">
+            Storm Mode is on.{" "}
+            <Link href="/storm" className="underline underline-offset-2">
+              Open the roster
+            </Link>
+          </p>
+        )}
       </Card>
+
+      {isStaff(user) && (
+        <Card className="border-pine-200 bg-pine-50/50">
+          <p className="text-xs font-semibold uppercase tracking-wide text-pine-700">
+            Moderators
+          </p>
+          <h2 className="mt-1 font-display text-lg font-semibold">
+            Storm Mode
+          </h2>
+          <div className="mt-2">
+            <StormToggle
+              active={user.neighborhood.stormActive}
+              setStorm={setStormModeAction}
+            />
+          </div>
+        </Card>
+      )}
 
       <Card className="bg-pine-500/5">
         <h2 className="text-[15px] font-semibold">
